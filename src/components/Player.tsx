@@ -25,6 +25,7 @@ export function Player({ song, onBack }: Props) {
     );
   }
 
+  const isPreRoll = beat.partIndex === -1;
   const nextPart = song.parts[beat.partIndex + 1] ?? null;
   const isLastPart = beat.partIndex === song.parts.length - 1;
   const measuresLeftInPart = beat.totalMeasuresInPart - beat.measureInPart - 1;
@@ -52,18 +53,30 @@ export function Player({ song, onBack }: Props) {
       </header>
 
       <div className="part-display">
-        <span className="part-progress">
-          Partie {beat.partIndex + 1} / {song.parts.length}
-        </span>
-        <h2 className="part-name">{beat.partName}</h2>
-        <span className="measure-progress">
-          Mesure {beat.measureInPart + 1} / {beat.totalMeasuresInPart}
-        </span>
-        <p className="next-part">
-          {isLastPart
-            ? 'Dernière partie'
-            : `Suivant : ${nextPart?.partName} ${measuresLeftInPart > 0 ? `(dans ${measuresLeftInPart} mesure${measuresLeftInPart > 1 ? 's' : ''})` : ''}`}
-        </p>
+        {isPreRoll ? (
+          <>
+            <span className="part-progress">Décompte</span>
+            <h2 className="part-name">Top départ</h2>
+            <p className="next-part">
+              {song.parts[0].partName ? `Suivant : ${song.parts[0].partName}` : ''}
+            </p>
+          </>
+        ) : (
+          <>
+            <span className="part-progress">
+              Partie {beat.partIndex + 1} / {song.parts.length}
+            </span>
+            <h2 className="part-name">{beat.partName}</h2>
+            <span className="measure-progress">
+              Mesure {beat.measureInPart + 1} / {beat.totalMeasuresInPart}
+            </span>
+            <p className="next-part">
+              {isLastPart
+                ? 'Dernière partie'
+                : `Suivant : ${nextPart?.partName} ${measuresLeftInPart > 0 ? `(dans ${measuresLeftInPart} mesure${measuresLeftInPart > 1 ? 's' : ''})` : ''}`}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="beat-dots" role="presentation">

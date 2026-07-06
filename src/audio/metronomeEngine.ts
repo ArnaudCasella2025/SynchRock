@@ -57,6 +57,12 @@ export class MetronomeEngine {
     return this.timeline;
   }
 
+  /** First beat of real song content, skipping the pre-roll count-in — used to
+   * display a sensible "ready to play" state rather than the pre-roll itself. */
+  getFirstRealBeat(): TimelineBeat | undefined {
+    return this.timeline.find((b) => !b.isPreRoll) ?? this.timeline[0];
+  }
+
   getStatus(): EngineStatus {
     return this.status;
   }
@@ -99,6 +105,7 @@ export class MetronomeEngine {
 
     const beat = this.timeline[startIndex];
     if (this.voiceEnabled) {
+      cancelSpeech();
       if (startIndex === 0) {
         speak(this.songTitle);
       } else if (beat.partName !== '') {
@@ -127,7 +134,8 @@ export class MetronomeEngine {
     this.scheduledNotes = [];
     this.status = 'stopped';
     this.callbacks.onStatusChange('stopped');
-    if (this.timeline[0]) this.callbacks.onBeat(this.timeline[0]);
+    const firstBeat = this.getFirstRealBeat();
+    if (firstBeat) this.callbacks.onBeat(firstBeat);
   }
 
   /** Jumps directly to the first beat of the given part index (0-based), useful
@@ -199,20 +207,17 @@ export class MetronomeEngine {
     this.playClick(time, beat.accent);
     this.scheduledNotes.push({ index, time });
 
-    if (this.voiceEnabled) {
+    if (this.voiceEnabled && (beat.announceNextPart || beat.countInNumber !== null)) {
       const delayMs = Math.max(0, (time - this.ctx!.currentTime) * 1000);
-
-      if (beat.announceNextPart) {
-        const text = beat.announceNextPart;
-        const timeoutId = window.setTimeout(() => speak(text), delayMs);
-        this.pendingSpeechTimeouts.push(timeoutId);
-      }
-
-      if (beat.countInNumber !== null) {
-        const word = countWord(beat.countInNumber);
-        const timeoutId = window.setTimeout(() => speak(word), delayMs);
-        this.pendingSpeechTimeouts.push(timeoutId);
-      }
+      const timeoutId = window.setTimeout(() => {
+        // Drop whatever the browser is still speaking/queuing from earlier beats
+        // instead of queuing after it, so the count stays locked to the actual
+        // click instead of drifting later with every beat that speaks something.
+        cancelSpeech();
+        if (beat.announceNextPart) speak(beat.announceNextPart);
+        if (beat.countInNumber !== null) speak(countWord(beat.countInNumber));
+      }, delayMs);
+      this.pendingSpeechTimeouts.push(timeoutId);
     }
   }
 
@@ -257,7 +262,8 @@ export class MetronomeEngine {
         this.currentBeatIndex = 0;
         this.nextBeatIndex = 0;
         this.callbacks.onStatusChange('stopped');
-        if (this.timeline[0]) this.callbacks.onBeat(this.timeline[0]);
+        const firstBeat = this.getFirstRealBeat();
+        if (firstBeat) this.callbacks.onBeat(firstBeat);
         this.callbacks.onSongEnd();
         return;
       }

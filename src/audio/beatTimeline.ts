@@ -2,8 +2,10 @@ import { DEFAULT_BEATS_PER_MEASURE, type Song } from '../types';
 
 export interface TimelineBeat {
   globalIndex: number;
+  /** -1 during the song's pre-roll count-in, before any real part has started. */
   partIndex: number;
   partName: string;
+  /** -1 during the pre-roll count-in. */
   measureInPart: number;
   totalMeasuresInPart: number;
   beatInMeasure: number;
@@ -14,16 +16,39 @@ export interface TimelineBeat {
    * that should be announced as "coming up" (null otherwise, and never set when
    * that part's name is empty — an unnamed part is announced silently). */
   announceNextPart: string | null;
-  /** 1-based beat position within a count-in measure (the last measure of every
-   * part, plus the very first measure of the song), null on other beats. */
+  /** 1-based beat position within a count-in measure (the pre-roll, or the last
+   * measure of a part), null on other beats. */
   countInNumber: number | null;
+  /** True for the pre-roll measure spoken before the song's first real beat. */
+  isPreRoll: boolean;
 }
 
-/** Flattens a song's parts/measures into a per-beat timeline used for both
- * audio scheduling and UI progress display. */
+/** Flattens a song's parts/measures into a per-beat timeline used for both audio
+ * scheduling and UI progress display. Starts with a pre-roll measure (matching
+ * the first part's beats-per-measure) so the count-in fully precedes the first
+ * real beat instead of overlapping the first part's own first measure. */
 export function buildTimeline(song: Song): TimelineBeat[] {
   const beats: TimelineBeat[] = [];
   let globalIndex = 0;
+
+  const firstPart = song.parts[0];
+  const preRollBeatsPerMeasure =
+    firstPart.beatsPerMeasure ?? song.beatsPerMeasure ?? DEFAULT_BEATS_PER_MEASURE;
+  for (let beatInMeasure = 0; beatInMeasure < preRollBeatsPerMeasure; beatInMeasure++) {
+    beats.push({
+      globalIndex: globalIndex++,
+      partIndex: -1,
+      partName: '',
+      measureInPart: -1,
+      totalMeasuresInPart: 0,
+      beatInMeasure,
+      beatsPerMeasure: preRollBeatsPerMeasure,
+      accent: beatInMeasure === 0,
+      announceNextPart: null,
+      countInNumber: beatInMeasure + 1,
+      isPreRoll: true,
+    });
+  }
 
   song.parts.forEach((part, partIndex) => {
     const beatsPerMeasure =
@@ -33,8 +58,7 @@ export function buildTimeline(song: Song): TimelineBeat[] {
 
     for (let measureInPart = 0; measureInPart < part.nbMeasure; measureInPart++) {
       for (let beatInMeasure = 0; beatInMeasure < beatsPerMeasure; beatInMeasure++) {
-        const isCountInMeasure =
-          measureInPart === lastMeasureInPart || (partIndex === 0 && measureInPart === 0);
+        const isCountInMeasure = measureInPart === lastMeasureInPart;
         beats.push({
           globalIndex: globalIndex++,
           partIndex,
@@ -46,6 +70,7 @@ export function buildTimeline(song: Song): TimelineBeat[] {
           accent: beatInMeasure === 0,
           announceNextPart: null,
           countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
+          isPreRoll: false,
         });
       }
     }
