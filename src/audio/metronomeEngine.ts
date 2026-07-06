@@ -1,5 +1,5 @@
 import { buildTimeline, type TimelineBeat } from './beatTimeline';
-import { cancelSpeech, countWord, speak } from './speech';
+import { cancelSpeech, speak } from './speech';
 import type { Song } from '../types';
 
 export type EngineStatus = 'stopped' | 'playing' | 'paused';
@@ -102,9 +102,9 @@ export class MetronomeEngine {
     this.callbacks.onStatusChange('playing');
 
     const beat = this.timeline[startIndex];
-    // From the top, the pre-roll's first beat speaks the title itself (in time
-    // with its click); only a mid-song start needs an immediate announcement.
-    if (this.voiceEnabled && startIndex !== 0 && beat.countInNumber === null && beat.partName !== '') {
+    // Announce the part being landed on directly (resume/jump); the pre-roll
+    // and part-transition count-ins are pure click cues for now, see scheduleBeat.
+    if (this.voiceEnabled && startIndex !== 0 && beat.partName !== '') {
       cancelSpeech();
       speak(beat.partName);
     }
@@ -200,30 +200,20 @@ export class MetronomeEngine {
 
   private scheduleBeat(index: number, time: number): void {
     const beat = this.timeline[index];
-    this.playClick(time, beat.accent);
+    // Diagnostic: the last measure of every part (and the pre-roll) used to be
+    // spoken ("Refrain, 2, 3, 4") on every beat, but that put heavy, repeated
+    // load on the browser's speech engine. Testing whether that's the actual
+    // cause of the drift/dropped-click reports by replacing it with a purely
+    // audio cue instead — a deeper-pitched click, no speech synthesis at all.
+    this.playClick(time, beat.accent, beat.countInNumber !== null);
     this.scheduledNotes.push({ index, time });
-
-    if (this.voiceEnabled && beat.countInNumber !== null) {
-      // Exactly ONE word per count-in click: the next part's name (or the song
-      // title on the pre-roll) replaces the "1", giving "Refrain, 2, 3, 4".
-      const word = beat.spokenOverride ?? countWord(beat.countInNumber);
-      const delayMs = Math.max(0, (time - this.ctx!.currentTime) * 1000);
-      const timeoutId = window.setTimeout(() => {
-        // Drop whatever the browser is still speaking/queuing from earlier beats
-        // instead of queuing after it, so the count stays locked to the actual
-        // click instead of drifting later with every beat that speaks something.
-        cancelSpeech();
-        speak(word);
-      }, delayMs);
-      this.pendingSpeechTimeouts.push(timeoutId);
-    }
   }
 
-  private playClick(time: number, accent: boolean): void {
+  private playClick(time: number, accent: boolean, lowPitch: boolean): void {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.frequency.value = accent ? 1500 : 1000;
+    osc.frequency.value = lowPitch ? (accent ? 700 : 500) : accent ? 1500 : 1000;
     osc.connect(gain);
     gain.connect(ctx.destination);
 
