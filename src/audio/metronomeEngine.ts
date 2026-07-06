@@ -1,5 +1,5 @@
 import { buildTimeline, type TimelineBeat } from './beatTimeline';
-import { cancelSpeech, speak } from './speech';
+import { cancelSpeech, countWord, speak } from './speech';
 import type { Song } from '../types';
 
 export type EngineStatus = 'stopped' | 'playing' | 'paused';
@@ -25,6 +25,7 @@ export class MetronomeEngine {
   private ctx: AudioContext | null = null;
   private timeline: TimelineBeat[] = [];
   private bpm = 120;
+  private songTitle = '';
 
   private status: EngineStatus = 'stopped';
   private currentBeatIndex = 0;
@@ -49,6 +50,7 @@ export class MetronomeEngine {
     this.stop();
     this.timeline = buildTimeline(song);
     this.bpm = song.bpm;
+    this.songTitle = song.titre;
   }
 
   getTimeline(): TimelineBeat[] {
@@ -96,7 +98,13 @@ export class MetronomeEngine {
     this.callbacks.onStatusChange('playing');
 
     const beat = this.timeline[startIndex];
-    if (this.voiceEnabled) speak(beat.partName);
+    if (this.voiceEnabled) {
+      if (startIndex === 0) {
+        speak(this.songTitle);
+      } else if (beat.partName !== '') {
+        speak(beat.partName);
+      }
+    }
     this.callbacks.onBeat(beat);
 
     this.runScheduler();
@@ -191,11 +199,20 @@ export class MetronomeEngine {
     this.playClick(time, beat.accent);
     this.scheduledNotes.push({ index, time });
 
-    if (beat.announceNextPart && this.voiceEnabled) {
-      const text = beat.announceNextPart;
+    if (this.voiceEnabled) {
       const delayMs = Math.max(0, (time - this.ctx!.currentTime) * 1000);
-      const timeoutId = window.setTimeout(() => speak(text), delayMs);
-      this.pendingSpeechTimeouts.push(timeoutId);
+
+      if (beat.announceNextPart) {
+        const text = beat.announceNextPart;
+        const timeoutId = window.setTimeout(() => speak(text), delayMs);
+        this.pendingSpeechTimeouts.push(timeoutId);
+      }
+
+      if (beat.countInNumber !== null) {
+        const word = countWord(beat.countInNumber);
+        const timeoutId = window.setTimeout(() => speak(word), delayMs);
+        this.pendingSpeechTimeouts.push(timeoutId);
+      }
     }
   }
 

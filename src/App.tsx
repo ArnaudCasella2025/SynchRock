@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { SongList } from './components/SongList';
 import { SongImport } from './components/SongImport';
 import { Player } from './components/Player';
-import { loadSongs, saveSongs } from './storage';
+import { loadSongs, mergeSongs, saveSongs } from './storage';
+import { parseSongLibrary } from './types';
 import type { Song } from './types';
 
 type View = { name: 'list' } | { name: 'player'; index: number };
@@ -13,19 +14,29 @@ function App() {
   const [view, setView] = useState<View>({ name: 'list' });
   const [importOpen, setImportOpen] = useState(false);
 
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}songs.json`)
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error('not found'))))
+      .then((raw) => {
+        const bundled = parseSongLibrary(raw);
+        setSongs((current) => {
+          const merged = mergeSongs(current, bundled);
+          saveSongs(merged);
+          return merged;
+        });
+      })
+      .catch(() => {
+        // No shared setlist shipped with this deployment; local imports still work.
+      });
+  }, []);
+
   function updateSongs(next: Song[]) {
     setSongs(next);
     saveSongs(next);
   }
 
   function handleImport(imported: Song[]) {
-    const merged = [...songs];
-    for (const song of imported) {
-      const existingIndex = merged.findIndex((s) => s.titre === song.titre);
-      if (existingIndex >= 0) merged[existingIndex] = song;
-      else merged.push(song);
-    }
-    updateSongs(merged);
+    updateSongs(mergeSongs(songs, imported));
     setImportOpen(false);
   }
 

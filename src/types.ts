@@ -24,7 +24,6 @@ export function isValidPart(value: unknown): value is Part {
   const p = value as Record<string, unknown>;
   return (
     typeof p.partName === 'string' &&
-    p.partName.trim().length > 0 &&
     typeof p.nbMeasure === 'number' &&
     Number.isFinite(p.nbMeasure) &&
     p.nbMeasure > 0 &&

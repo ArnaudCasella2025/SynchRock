@@ -1,8 +1,9 @@
 # SynchRock
 
 Métronome de répétition pour un groupe : un clic par temps (plus aigu sur le
-premier temps de chaque mesure) et une annonce vocale du nom de la partie
-qui arrive, environ une mesure à l'avance. Application web, aucune
+premier temps de chaque mesure), le titre de la chanson et un décompte
+annoncés au démarrage, et une annonce vocale du nom de chaque partie qui
+arrive, environ une mesure à l'avance. Application web, aucune
 installation : une seule page ouverte dans un navigateur (téléphone,
 tablette, ordinateur) branché sur une enceinte.
 
@@ -11,15 +12,26 @@ Pensée pour un seul appareil partagé par le groupe pendant la répétition
 
 ## Utiliser l'app
 
-1. Importer une ou plusieurs chansons au format JSON (bouton "Importer un
-   JSON de chansons").
+1. Le setlist du groupe (`public/songs.json`) se charge automatiquement à
+   l'ouverture de la page : tout le monde voit les mêmes chansons, sur
+   n'importe quel appareil, sans rien importer. Pour ajouter une chanson
+   ponctuelle (pas dans le setlist partagé), le bouton "Importer un JSON de
+   chansons" reste disponible et la sauvegarde dans le navigateur
+   (`localStorage`).
 2. Choisir une chanson dans la liste.
-3. Lancer la lecture : le clic démarre et le nom de la partie en cours
-   s'affiche en grand. Cliquer sur une partie dans la liste permet d'y
-   sauter directement (pratique pour répéter un couplet ou un solo sans
-   rejouer toute la chanson).
+3. Lancer la lecture : le titre est annoncé, suivi d'un décompte ("un, deux,
+   trois, quatre"...) sur la première mesure, puis le clic tourne et le nom
+   de la partie en cours s'affiche en grand. Cliquer sur une partie dans la
+   liste permet d'y sauter directement (pratique pour répéter un couplet ou
+   un solo sans rejouer toute la chanson) — dans ce cas, seul le nom de la
+   partie est annoncé (pas le titre).
 
-Les chansons importées sont sauvegardées dans le navigateur (`localStorage`).
+À la dernière mesure de chaque partie (y compris la toute dernière de la
+chanson), un décompte est parlé sur chaque temps pour aider à sentir la
+transition. Une partie nommée `""` (chaîne vide) n'est jamais annoncée à la
+voix — utile pour une section que le groupe connaît déjà sans avoir besoin
+qu'on la nomme — mais son décompte de fin continue de fonctionner normalement,
+et elle peut toujours servir à annoncer la partie suivante.
 
 ## Format JSON attendu
 
@@ -47,12 +59,21 @@ Les chansons importées sont sauvegardées dans le navigateur (`localStorage`).
 
 - `titre`, `bpm` et `parts` sont obligatoires.
 - `partName` est un texte libre (intro, couplet, pre refrain, refrain,
-  interlude, break 1/2/3, solo, refrain final, outro, ou tout autre nom).
+  interlude, break 1/2/3, solo, refrain final, outro, ou tout autre nom), ou
+  une chaîne vide `""` pour une partie volontairement non annoncée.
 - `beatsPerMeasure` (optionnel, défaut `4`) : nombre de clics par mesure.
   Peut être défini au niveau de la chanson et/ou surchargé par partie, pour
   gérer un changement de mesure (3/4, 6/8...) au milieu d'un morceau.
 - Un fichier peut aussi être une chanson unique (objet `{ titre, bpm, parts }`)
   ou une liste `[...]` de chansons, sans la clé `songs`.
+
+## Le setlist partagé (`public/songs.json`)
+
+Ce fichier est la source de vérité pour tout le groupe : modifie-le (mêmes
+champs que ci-dessus, sous une clé `"songs"`), commit, push sur `main` — le
+déploiement automatique republie le site et tout le monde voit le nouveau
+setlist à la prochaine ouverture de la page. C'est distinct des imports
+manuels (ponctuels, propres à chaque navigateur).
 
 ## Développement
 
