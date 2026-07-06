@@ -24,7 +24,7 @@ interface ScheduledNote {
 }
 
 export class MetronomeEngine {
-  private ctx: AudioContext | null = null;
+  private ctx: AudioContext;
   private timeline: TimelineBeat[] = [];
   private bpm = 120;
 
@@ -51,7 +51,11 @@ export class MetronomeEngine {
 
   constructor(callbacks: MetronomeCallbacks) {
     this.callbacks = callbacks;
-    void loadCountSamples().then((samples) => {
+    // Created eagerly (constructing doesn't need a user gesture, only
+    // resuming it for actual output does — see ensureContext) so decoding
+    // and playback always share the same context.
+    this.ctx = new AudioContext();
+    void loadCountSamples(this.ctx).then((samples) => {
       this.countSamples = samples;
     });
   }
@@ -85,21 +89,24 @@ export class MetronomeEngine {
     if (!v) cancelSpeech();
   }
 
-  private ensureContext(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
-    }
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume();
-    }
-    return this.ctx;
-  }
-
   /** Starts (or resumes) playback. Defaults to resuming from the last known position. */
   play(fromBeatIndex?: number): void {
     if (this.timeline.length === 0) return;
-    const ctx = this.ensureContext();
+    // The context is created eagerly (see constructor) so it can start
+    // decoding samples before any user gesture, which means it's still
+    // "suspended" the first time this runs from a real click. resume() must
+    // be *called* synchronously from within this gesture to be honored by
+    // the browser, but it completes asynchronously — ctx.currentTime stays
+    // frozen at 0 until it does, so scheduling has to wait for it too.
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume().then(() => this.beginPlayback(fromBeatIndex));
+    } else {
+      this.beginPlayback(fromBeatIndex);
+    }
+  }
 
+  private beginPlayback(fromBeatIndex?: number): void {
+    const ctx = this.ctx;
     const startIndex = Math.min(
       Math.max(fromBeatIndex ?? this.currentBeatIndex, 0),
       this.timeline.length - 1
@@ -165,8 +172,7 @@ export class MetronomeEngine {
 
   dispose(): void {
     this.stop();
-    void this.ctx?.close();
-    this.ctx = null;
+    void this.ctx.close();
   }
 
   private clearTimers(): void {
@@ -203,7 +209,7 @@ export class MetronomeEngine {
   }
 
   private runScheduler = (): void => {
-    const ctx = this.ctx!;
+    const ctx = this.ctx;
     while (
       this.nextBeatIndex < this.timeline.length &&
       this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_S
@@ -233,7 +239,7 @@ export class MetronomeEngine {
   }
 
   private playCountSample(time: number, countInNumber: number, cutoffTime: number): void {
-    const ctx = this.ctx!;
+    const ctx = this.ctx;
     const buffer = this.countSamples[countInNumber - 1];
     if (!buffer) {
       // Not loaded (slow network) or failed to decode — a click beats silence.
@@ -267,7 +273,7 @@ export class MetronomeEngine {
   }
 
   private playClick(time: number, accent: boolean): void {
-    const ctx = this.ctx!;
+    const ctx = this.ctx;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = accent ? 1500 : 1000;
@@ -290,7 +296,7 @@ export class MetronomeEngine {
 
   private runUiLoop(): void {
     const tick = (): void => {
-      const ctx = this.ctx!;
+      const ctx = this.ctx;
       // outputLatency (or the older baseLatency) is the browser's own estimate
       // of the delay between a sample leaving the audio graph and it actually
       // reaching the speaker. Holding the UI update back by that amount keeps
