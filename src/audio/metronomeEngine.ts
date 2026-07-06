@@ -1,4 +1,5 @@
 import { buildTimeline, type TimelineBeat } from './beatTimeline';
+import { loadCountSamples } from './countSamples';
 import { cancelSpeech, speak } from './speech';
 import type { Song } from '../types';
 
@@ -15,6 +16,7 @@ const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_S = 0.1;
 const CLICK_DURATION_S = 0.05;
 const START_DELAY_S = 0.12;
+const SAMPLE_FADE_OUT_S = 0.03;
 
 interface ScheduledNote {
   index: number;
@@ -35,14 +37,23 @@ export class MetronomeEngine {
   private rafId: number | null = null;
   private scheduledNotes: ScheduledNote[] = [];
   private pendingOscillators: OscillatorNode[] = [];
+  private pendingSampleSources: AudioBufferSourceNode[] = [];
   private pendingSpeechTimeouts: number[] = [];
 
   private clickVolume = 1;
   private voiceEnabled = true;
   private callbacks: MetronomeCallbacks;
 
+  /** "Un/deux/trois/quatre" spoken samples for the count-in, indexed 0-3.
+   * Fetched and decoded as soon as the engine is created (no user gesture
+   * needed for that), so they're ready well before playback can start. */
+  private countSamples: (AudioBuffer | null)[] = [];
+
   constructor(callbacks: MetronomeCallbacks) {
     this.callbacks = callbacks;
+    void loadCountSamples().then((samples) => {
+      this.countSamples = samples;
+    });
   }
 
   loadSong(song: Song): void {
@@ -181,6 +192,14 @@ export class MetronomeEngine {
       }
     });
     this.pendingOscillators = [];
+    this.pendingSampleSources.forEach((source) => {
+      try {
+        source.stop();
+      } catch {
+        // already stopped
+      }
+    });
+    this.pendingSampleSources = [];
   }
 
   private runScheduler = (): void => {
@@ -200,20 +219,58 @@ export class MetronomeEngine {
 
   private scheduleBeat(index: number, time: number): void {
     const beat = this.timeline[index];
-    // Diagnostic: the last measure of every part (and the pre-roll) used to be
-    // spoken ("Refrain, 2, 3, 4") on every beat, but that put heavy, repeated
-    // load on the browser's speech engine. Testing whether that's the actual
-    // cause of the drift/dropped-click reports by replacing it with a purely
-    // audio cue instead — a deeper-pitched click, no speech synthesis at all.
-    this.playClick(time, beat.accent, beat.countInNumber !== null);
+    if (beat.countInNumber !== null && this.voiceEnabled) {
+      // Sample-accurate, same as the click: a real recorded voice saying
+      // "un/deux/trois/quatre" scheduled directly on the audio graph, with
+      // none of speechSynthesis's queuing or engine-startup latency. Cut off
+      // at the next beat so a long recording can't bleed into it — these
+      // samples (1.5-4.8s) far outlast a beat at rehearsal tempos.
+      this.playCountSample(time, beat.countInNumber, time + 60 / this.bpm);
+    } else {
+      this.playClick(time, beat.accent);
+    }
     this.scheduledNotes.push({ index, time });
   }
 
-  private playClick(time: number, accent: boolean, lowPitch: boolean): void {
+  private playCountSample(time: number, countInNumber: number, cutoffTime: number): void {
+    const ctx = this.ctx!;
+    const buffer = this.countSamples[countInNumber - 1];
+    if (!buffer) {
+      // Not loaded (slow network) or failed to decode — a click beats silence.
+      this.playClick(time, countInNumber === 1);
+      return;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    source.connect(gain);
+
+    gain.gain.setValueAtTime(this.clickVolume, time);
+    source.start(time);
+    if (time + buffer.duration > cutoffTime) {
+      // Fade out fast right before the cutoff instead of stopping cold, to
+      // avoid an audible click/pop from truncating a non-zero waveform.
+      // Must come after start() — the spec throws if stop() is scheduled
+      // before the node has actually been started.
+      const fadeStart = Math.max(time, cutoffTime - SAMPLE_FADE_OUT_S);
+      gain.gain.setValueAtTime(this.clickVolume, fadeStart);
+      gain.gain.linearRampToValueAtTime(0.0001, cutoffTime);
+      source.stop(cutoffTime + 0.01);
+    }
+
+    this.pendingSampleSources.push(source);
+    source.onended = () => {
+      this.pendingSampleSources = this.pendingSampleSources.filter((s) => s !== source);
+    };
+  }
+
+  private playClick(time: number, accent: boolean): void {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.frequency.value = lowPitch ? (accent ? 700 : 500) : accent ? 1500 : 1000;
+    osc.frequency.value = accent ? 1500 : 1000;
     osc.connect(gain);
     gain.connect(ctx.destination);
 
