@@ -19,7 +19,7 @@ export function useMetronome(song: Song) {
   useEffect(() => {
     const engine = engineRef.current!;
     engine.loadSong(song);
-    setBeat(engine.getTimeline()[0] ?? null);
+    setBeat(engine.getFirstRealBeat() ?? null);
     setStatus('stopped');
     return () => engine.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,7 +34,7 @@ export function useMetronome(song: Song) {
 
   return {
     status,
-    beat: beat ?? timeline[0] ?? null,
+    beat: beat ?? engineRef.current.getFirstRealBeat() ?? null,
     timeline,
     play: () => engineRef.current!.play(),
     pause: () => engineRef.current!.pause(),

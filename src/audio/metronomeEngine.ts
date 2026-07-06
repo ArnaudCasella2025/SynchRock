@@ -57,6 +57,12 @@ export class MetronomeEngine {
     return this.timeline;
   }
 
+  /** First beat of real song content, skipping the pre-roll count-in — used to
+   * display a sensible "ready to play" state rather than the pre-roll itself. */
+  getFirstRealBeat(): TimelineBeat | undefined {
+    return this.timeline.find((b) => !b.isPreRoll) ?? this.timeline[0];
+  }
+
   getStatus(): EngineStatus {
     return this.status;
   }
@@ -127,7 +133,8 @@ export class MetronomeEngine {
     this.scheduledNotes = [];
     this.status = 'stopped';
     this.callbacks.onStatusChange('stopped');
-    if (this.timeline[0]) this.callbacks.onBeat(this.timeline[0]);
+    const firstBeat = this.getFirstRealBeat();
+    if (firstBeat) this.callbacks.onBeat(firstBeat);
   }
 
   /** Jumps directly to the first beat of the given part index (0-based), useful
@@ -257,7 +264,8 @@ export class MetronomeEngine {
         this.currentBeatIndex = 0;
         this.nextBeatIndex = 0;
         this.callbacks.onStatusChange('stopped');
-        if (this.timeline[0]) this.callbacks.onBeat(this.timeline[0]);
+        const firstBeat = this.getFirstRealBeat();
+        if (firstBeat) this.callbacks.onBeat(firstBeat);
         this.callbacks.onSongEnd();
         return;
       }
