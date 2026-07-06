@@ -12,7 +12,9 @@ export function SongList({ songs, onSelect, onDelete, onOpenImport }: Props) {
     <div className="song-list">
       <header className="app-header">
         <h1>SynchRock</h1>
-        <p className="subtitle">Clic de groupe &amp; annonce des parties</p>
+        <p className="subtitle">
+          Clic de groupe &amp; annonce des parties &middot; v{__APP_VERSION__}
+        </p>
       </header>
 
       <button type="button" className="primary import-btn" onClick={onOpenImport}>

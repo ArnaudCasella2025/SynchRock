@@ -25,7 +25,6 @@ export class MetronomeEngine {
   private ctx: AudioContext | null = null;
   private timeline: TimelineBeat[] = [];
   private bpm = 120;
-  private songTitle = '';
 
   private status: EngineStatus = 'stopped';
   private currentBeatIndex = 0;
@@ -50,7 +49,6 @@ export class MetronomeEngine {
     this.stop();
     this.timeline = buildTimeline(song);
     this.bpm = song.bpm;
-    this.songTitle = song.titre;
   }
 
   getTimeline(): TimelineBeat[] {
@@ -104,13 +102,11 @@ export class MetronomeEngine {
     this.callbacks.onStatusChange('playing');
 
     const beat = this.timeline[startIndex];
-    if (this.voiceEnabled) {
+    // From the top, the pre-roll's first beat speaks the title itself (in time
+    // with its click); only a mid-song start needs an immediate announcement.
+    if (this.voiceEnabled && startIndex !== 0 && beat.countInNumber === null && beat.partName !== '') {
       cancelSpeech();
-      if (startIndex === 0) {
-        speak(this.songTitle);
-      } else if (beat.partName !== '') {
-        speak(beat.partName);
-      }
+      speak(beat.partName);
     }
     this.callbacks.onBeat(beat);
 
@@ -207,15 +203,17 @@ export class MetronomeEngine {
     this.playClick(time, beat.accent);
     this.scheduledNotes.push({ index, time });
 
-    if (this.voiceEnabled && (beat.announceNextPart || beat.countInNumber !== null)) {
+    if (this.voiceEnabled && beat.countInNumber !== null) {
+      // Exactly ONE word per count-in click: the next part's name (or the song
+      // title on the pre-roll) replaces the "1", giving "Refrain, 2, 3, 4".
+      const word = beat.spokenOverride ?? countWord(beat.countInNumber);
       const delayMs = Math.max(0, (time - this.ctx!.currentTime) * 1000);
       const timeoutId = window.setTimeout(() => {
         // Drop whatever the browser is still speaking/queuing from earlier beats
         // instead of queuing after it, so the count stays locked to the actual
         // click instead of drifting later with every beat that speaks something.
         cancelSpeech();
-        if (beat.announceNextPart) speak(beat.announceNextPart);
-        if (beat.countInNumber !== null) speak(countWord(beat.countInNumber));
+        speak(word);
       }, delayMs);
       this.pendingSpeechTimeouts.push(timeoutId);
     }
