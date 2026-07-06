@@ -27,11 +27,18 @@ Pensée pour un seul appareil partagé par le groupe pendant la répétition
    partie est annoncé (pas le titre).
 
 À la dernière mesure de chaque partie (y compris la toute dernière de la
-chanson), un décompte est parlé sur chaque temps pour aider à sentir la
-transition. Une partie nommée `""` (chaîne vide) n'est jamais annoncée à la
-voix — utile pour une section que le groupe connaît déjà sans avoir besoin
-qu'on la nomme — mais son décompte de fin continue de fonctionner normalement,
-et elle peut toujours servir à annoncer la partie suivante.
+chanson), le décompte ("un, deux, trois, quatre"...) est joué sur chaque
+temps pour aider à sentir la transition — via de vrais échantillons audio
+enregistrés (`public/audio/claire-1.mp3` à `claire-4.mp3`), lus de façon
+échantillon-précise comme le clic, sans les décalages ou coupures de la
+synthèse vocale du navigateur. Chaque échantillon est automatiquement coupé
+net (avec un court fondu) s'il dépasse la durée d'un temps, pour ne jamais
+déborder sur le suivant. Décocher "Annonce vocale des parties" remplace ces
+échantillons par un simple clic. Une partie nommée `""` (chaîne vide) n'est
+jamais annoncée à la voix — utile pour une section que le groupe connaît déjà
+sans avoir besoin qu'on la nomme — mais son décompte de fin continue de
+fonctionner normalement, et elle peut toujours servir à annoncer la partie
+suivante.
 
 ## Format JSON attendu
 
