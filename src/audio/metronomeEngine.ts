@@ -24,7 +24,7 @@ interface ScheduledNote {
 }
 
 export class MetronomeEngine {
-  private ctx: AudioContext;
+  private ctx: AudioContext | null = null;
   private timeline: TimelineBeat[] = [];
   private bpm = 120;
 
@@ -44,20 +44,12 @@ export class MetronomeEngine {
   private voiceEnabled = true;
   private callbacks: MetronomeCallbacks;
 
-  /** "Un/deux/trois/quatre" spoken samples for the count-in, indexed 0-3.
-   * Fetched and decoded as soon as the engine is created (no user gesture
-   * needed for that), so they're ready well before playback can start. */
+  /** "Un/deux/trois/quatre" spoken samples for the count-in, indexed 0-3. */
   private countSamples: (AudioBuffer | null)[] = [];
+  private countSamplesRequested = false;
 
   constructor(callbacks: MetronomeCallbacks) {
     this.callbacks = callbacks;
-    // Created eagerly (constructing doesn't need a user gesture, only
-    // resuming it for actual output does — see ensureContext) so decoding
-    // and playback always share the same context.
-    this.ctx = new AudioContext();
-    void loadCountSamples(this.ctx).then((samples) => {
-      this.countSamples = samples;
-    });
   }
 
   loadSong(song: Song): void {
@@ -89,24 +81,34 @@ export class MetronomeEngine {
     if (!v) cancelSpeech();
   }
 
+  /** Lazily creates the AudioContext on first use, always from within a real
+   * user gesture (play() is only ever called from a click handler) so it
+   * starts running immediately — creating it any earlier leaves it stuck
+   * "suspended" on some browsers even after resume(), which silently freezes
+   * ctx.currentTime and blocks all scheduling. Also kicks off decoding the
+   * count-in samples on this same context the first time, since some
+   * browsers (notably WebKit/Safari) won't reliably play an AudioBuffer
+   * decoded on a different context. */
+  private ensureContext(): AudioContext {
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+    }
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    if (!this.countSamplesRequested) {
+      this.countSamplesRequested = true;
+      void loadCountSamples(this.ctx).then((samples) => {
+        this.countSamples = samples;
+      });
+    }
+    return this.ctx;
+  }
+
   /** Starts (or resumes) playback. Defaults to resuming from the last known position. */
   play(fromBeatIndex?: number): void {
     if (this.timeline.length === 0) return;
-    // The context is created eagerly (see constructor) so it can start
-    // decoding samples before any user gesture, which means it's still
-    // "suspended" the first time this runs from a real click. resume() must
-    // be *called* synchronously from within this gesture to be honored by
-    // the browser, but it completes asynchronously — ctx.currentTime stays
-    // frozen at 0 until it does, so scheduling has to wait for it too.
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume().then(() => this.beginPlayback(fromBeatIndex));
-    } else {
-      this.beginPlayback(fromBeatIndex);
-    }
-  }
-
-  private beginPlayback(fromBeatIndex?: number): void {
-    const ctx = this.ctx;
+    const ctx = this.ensureContext();
     const startIndex = Math.min(
       Math.max(fromBeatIndex ?? this.currentBeatIndex, 0),
       this.timeline.length - 1
@@ -172,7 +174,8 @@ export class MetronomeEngine {
 
   dispose(): void {
     this.stop();
-    void this.ctx.close();
+    void this.ctx?.close();
+    this.ctx = null;
   }
 
   private clearTimers(): void {
@@ -209,7 +212,7 @@ export class MetronomeEngine {
   }
 
   private runScheduler = (): void => {
-    const ctx = this.ctx;
+    const ctx = this.ctx!;
     while (
       this.nextBeatIndex < this.timeline.length &&
       this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_S
@@ -239,7 +242,7 @@ export class MetronomeEngine {
   }
 
   private playCountSample(time: number, countInNumber: number, cutoffTime: number): void {
-    const ctx = this.ctx;
+    const ctx = this.ctx!;
     const buffer = this.countSamples[countInNumber - 1];
     if (!buffer) {
       // Not loaded (slow network) or failed to decode — a click beats silence.
@@ -273,7 +276,7 @@ export class MetronomeEngine {
   }
 
   private playClick(time: number, accent: boolean): void {
-    const ctx = this.ctx;
+    const ctx = this.ctx!;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = accent ? 1500 : 1000;
@@ -296,7 +299,7 @@ export class MetronomeEngine {
 
   private runUiLoop(): void {
     const tick = (): void => {
-      const ctx = this.ctx;
+      const ctx = this.ctx!;
       // outputLatency (or the older baseLatency) is the browser's own estimate
       // of the delay between a sample leaving the audio graph and it actually
       // reaching the speaker. Holding the UI update back by that amount keeps
