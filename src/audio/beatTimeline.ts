@@ -16,6 +16,13 @@ export interface TimelineBeat {
    * measure of a part), null on other beats — used to give those beats a
    * distinct (lower-pitched) click. */
   countInNumber: number | null;
+  /** Name of the part about to start, set only on the first beat of a count-in
+   * measure (countInNumber === 1) when that upcoming part has a non-empty
+   * name. Spoken instead of playing the "un" sample so free-text part names
+   * (which have no pre-recorded audio) still get announced during the
+   * count-in. Null on every other beat, on the last part's own count-in
+   * (nothing follows it), and when the upcoming part is named "". */
+  upcomingPartName: string | null;
   /** True for the pre-roll measure played before the song's first real beat. */
   isPreRoll: boolean;
 }
@@ -42,6 +49,7 @@ export function buildTimeline(song: Song): TimelineBeat[] {
       beatsPerMeasure: preRollBeatsPerMeasure,
       accent: beatInMeasure === 0,
       countInNumber: beatInMeasure + 1,
+      upcomingPartName: beatInMeasure === 0 ? firstPart.partName || null : null,
       isPreRoll: true,
     });
   }
@@ -50,6 +58,7 @@ export function buildTimeline(song: Song): TimelineBeat[] {
     const beatsPerMeasure =
       part.beatsPerMeasure ?? song.beatsPerMeasure ?? DEFAULT_BEATS_PER_MEASURE;
     const lastMeasureInPart = part.nbMeasure - 1;
+    const nextPart = song.parts[partIndex + 1];
 
     for (let measureInPart = 0; measureInPart < part.nbMeasure; measureInPart++) {
       for (let beatInMeasure = 0; beatInMeasure < beatsPerMeasure; beatInMeasure++) {
@@ -64,6 +73,8 @@ export function buildTimeline(song: Song): TimelineBeat[] {
           beatsPerMeasure,
           accent: beatInMeasure === 0,
           countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
+          upcomingPartName:
+            isCountInMeasure && beatInMeasure === 0 ? nextPart?.partName || null : null,
           isPreRoll: false,
         });
       }
