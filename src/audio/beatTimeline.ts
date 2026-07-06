@@ -13,13 +13,10 @@ export interface TimelineBeat {
   /** True on the first beat of a measure (the accented click). */
   accent: boolean;
   /** 1-based beat position within a count-in measure (the pre-roll, or the last
-   * measure of a part), null on other beats. */
+   * measure of a part), null on other beats — used to give those beats a
+   * distinct (lower-pitched) click. */
   countInNumber: number | null;
-  /** Text spoken on this beat INSTEAD of the plain count word: the next part's
-   * name on beat 1 of a part's last measure ("Refrain, 2, 3, 4"), or the song
-   * title on beat 1 of the pre-roll. Null when the plain count word applies. */
-  spokenOverride: string | null;
-  /** True for the pre-roll measure spoken before the song's first real beat. */
+  /** True for the pre-roll measure played before the song's first real beat. */
   isPreRoll: boolean;
 }
 
@@ -45,7 +42,6 @@ export function buildTimeline(song: Song): TimelineBeat[] {
       beatsPerMeasure: preRollBeatsPerMeasure,
       accent: beatInMeasure === 0,
       countInNumber: beatInMeasure + 1,
-      spokenOverride: beatInMeasure === 0 && song.titre !== '' ? song.titre : null,
       isPreRoll: true,
     });
   }
@@ -53,7 +49,6 @@ export function buildTimeline(song: Song): TimelineBeat[] {
   song.parts.forEach((part, partIndex) => {
     const beatsPerMeasure =
       part.beatsPerMeasure ?? song.beatsPerMeasure ?? DEFAULT_BEATS_PER_MEASURE;
-    const partStartIdx = globalIndex;
     const lastMeasureInPart = part.nbMeasure - 1;
 
     for (let measureInPart = 0; measureInPart < part.nbMeasure; measureInPart++) {
@@ -69,16 +64,9 @@ export function buildTimeline(song: Song): TimelineBeat[] {
           beatsPerMeasure,
           accent: beatInMeasure === 0,
           countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
-          spokenOverride: null,
           isPreRoll: false,
         });
       }
-    }
-
-    const nextPart = song.parts[partIndex + 1];
-    if (nextPart && nextPart.partName !== '') {
-      const lastMeasureStartIdx = partStartIdx + lastMeasureInPart * beatsPerMeasure;
-      beats[lastMeasureStartIdx].spokenOverride = nextPart.partName;
     }
   });
 
