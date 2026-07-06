@@ -32,3 +32,23 @@ export function speak(text: string): void {
 export function cancelSpeech(): void {
   if (supported()) window.speechSynthesis.cancel();
 }
+
+const FRENCH_COUNT_WORDS = [
+  'un',
+  'deux',
+  'trois',
+  'quatre',
+  'cinq',
+  'six',
+  'sept',
+  'huit',
+  'neuf',
+  'dix',
+  'onze',
+  'douze',
+];
+
+/** Spoken French word for a 1-based beat count (falls back to the digit past twelve). */
+export function countWord(n: number): string {
+  return FRENCH_COUNT_WORDS[n - 1] ?? String(n);
+}
