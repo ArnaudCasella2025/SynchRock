@@ -234,7 +234,15 @@ export class MetronomeEngine {
   private runUiLoop(): void {
     const tick = (): void => {
       const ctx = this.ctx!;
-      const now = ctx.currentTime;
+      // outputLatency (or the older baseLatency) is the browser's own estimate
+      // of the delay between a sample leaving the audio graph and it actually
+      // reaching the speaker. Holding the UI update back by that amount keeps
+      // the on-screen part/measure closer to what's actually audible instead
+      // of jumping to the next part before its click has really been heard.
+      // This can't account for latency further downstream (e.g. a Bluetooth
+      // speaker's own radio/codec delay), which the browser has no way to see.
+      const outputLatency = ctx.outputLatency ?? ctx.baseLatency ?? 0;
+      const now = ctx.currentTime - outputLatency;
 
       while (this.scheduledNotes.length && this.scheduledNotes[0].time <= now) {
         const note = this.scheduledNotes.shift()!;
