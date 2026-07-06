@@ -28,7 +28,11 @@ export function Player({ song, onBack }: Props) {
   const isPreRoll = beat.partIndex === -1;
   const nextPart = song.parts[beat.partIndex + 1] ?? null;
   const isLastPart = beat.partIndex === song.parts.length - 1;
-  const measuresLeftInPart = beat.totalMeasuresInPart - beat.measureInPart - 1;
+  // Measures remaining including the one currently playing, e.g. on the last
+  // measure this is 1 ("(dans 1 mesure)"), not 0 — it was off by one, counting
+  // only the measures *after* the current one and dropping the hint entirely
+  // right when the count-in click made it most useful.
+  const measuresLeftInPart = beat.totalMeasuresInPart - beat.measureInPart;
 
   function handleVolumeChange(v: number) {
     setVolume(v);
