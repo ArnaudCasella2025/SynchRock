@@ -1,6 +1,10 @@
 const FILES = ['claire-1.mp3', 'claire-2.mp3', 'claire-3.mp3', 'claire-4.mp3'];
 
-const SILENCE_THRESHOLD_RATIO = 0.15;
+// A couple of the recordings have a quiet breath/consonant blip (~20-25% of
+// peak) shortly before the actual word's louder onset; 0.15 latched onto
+// that blip and left an audible gap before the real word. 0.25-0.35 all land
+// on the same, later, correct onset across every sample — 0.3 splits it.
+const SILENCE_THRESHOLD_RATIO = 0.3;
 const ANALYSIS_WINDOW_MS = 20;
 const PRE_ROLL_MS = 30;
 
