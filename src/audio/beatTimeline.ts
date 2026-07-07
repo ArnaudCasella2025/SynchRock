@@ -16,15 +16,51 @@ export interface TimelineBeat {
    * measure of a part), null on other beats — used to give those beats a
    * distinct (lower-pitched) click. */
   countInNumber: number | null;
-  /** Name of the part about to start, set only on the first beat of a count-in
-   * measure (countInNumber === 1) when that upcoming part has a non-empty
-   * name. Spoken instead of playing the "un" sample so free-text part names
-   * (which have no pre-recorded audio) still get announced during the
-   * count-in. Null on every other beat, on the last part's own count-in
-   * (nothing follows it), and when the upcoming part is named "". */
+  /** Name of the part about to start, set on every beat of a count-in measure
+   * when that upcoming part has a non-empty name (kept for the whole measure,
+   * not just its first beat, so the UI can show "next up" throughout the
+   * count-in). Null outside a count-in measure, on the last part's own
+   * count-in (nothing follows it), and when the upcoming part is named "". */
   upcomingPartName: string | null;
+  /** True when `upcomingPartName` (if set) should be spoken on the count-in's
+   * first beat instead of playing its "un" sample. False when the name was
+   * already announced separately beforehand — e.g. jumping to a part speaks
+   * its name up front, then plays a plain count-in, rather than speaking over
+   * beat one of the count-in itself. */
+  announceUpcomingPart: boolean;
   /** True for the pre-roll measure played before the song's first real beat. */
   isPreRoll: boolean;
+}
+
+/** Builds a standalone pre-roll measure (partIndex -1) with "un/deux/trois/
+ * quatre"-style count-in clicks — used both for the song's own pre-roll and
+ * for manually jumping to a part mid-rehearsal. When `announce` is true
+ * (the default), `upcomingPartName`'s first beat is spoken instead of
+ * clicked; pass false when the name was already announced separately right
+ * before this count-in starts. */
+export function buildCountInBeats(
+  beatsPerMeasure: number,
+  upcomingPartName: string | null,
+  announce = true
+): TimelineBeat[] {
+  const beats: TimelineBeat[] = [];
+  for (let beatInMeasure = 0; beatInMeasure < beatsPerMeasure; beatInMeasure++) {
+    beats.push({
+      globalIndex: -1,
+      partIndex: -1,
+      partName: '',
+      measureInPart: -1,
+      totalMeasuresInPart: 0,
+      beatInMeasure,
+      beatsPerMeasure,
+      accent: beatInMeasure === 0,
+      countInNumber: beatInMeasure + 1,
+      upcomingPartName,
+      announceUpcomingPart: announce,
+      isPreRoll: true,
+    });
+  }
+  return beats;
 }
 
 /** Flattens a song's parts/measures into a per-beat timeline used for both audio
@@ -38,21 +74,9 @@ export function buildTimeline(song: Song): TimelineBeat[] {
   const firstPart = song.parts[0];
   const preRollBeatsPerMeasure =
     firstPart.beatsPerMeasure ?? song.beatsPerMeasure ?? DEFAULT_BEATS_PER_MEASURE;
-  for (let beatInMeasure = 0; beatInMeasure < preRollBeatsPerMeasure; beatInMeasure++) {
-    beats.push({
-      globalIndex: globalIndex++,
-      partIndex: -1,
-      partName: '',
-      measureInPart: -1,
-      totalMeasuresInPart: 0,
-      beatInMeasure,
-      beatsPerMeasure: preRollBeatsPerMeasure,
-      accent: beatInMeasure === 0,
-      countInNumber: beatInMeasure + 1,
-      upcomingPartName: beatInMeasure === 0 ? firstPart.partName || null : null,
-      isPreRoll: true,
-    });
-  }
+  buildCountInBeats(preRollBeatsPerMeasure, firstPart.partName || null).forEach((beat) => {
+    beats.push({ ...beat, globalIndex: globalIndex++ });
+  });
 
   song.parts.forEach((part, partIndex) => {
     const beatsPerMeasure =
@@ -73,8 +97,8 @@ export function buildTimeline(song: Song): TimelineBeat[] {
           beatsPerMeasure,
           accent: beatInMeasure === 0,
           countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
-          upcomingPartName:
-            isCountInMeasure && beatInMeasure === 0 ? nextPart?.partName || null : null,
+          upcomingPartName: isCountInMeasure ? nextPart?.partName || null : null,
+          announceUpcomingPart: true,
           isPreRoll: false,
         });
       }

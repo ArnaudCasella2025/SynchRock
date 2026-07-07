@@ -62,7 +62,7 @@ export function Player({ song, onBack }: Props) {
             <span className="part-progress">Décompte</span>
             <h2 className="part-name">Top départ</h2>
             <p className="next-part">
-              {song.parts[0].partName ? `Suivant : ${song.parts[0].partName}` : ''}
+              {beat.upcomingPartName ? `Suivant : ${beat.upcomingPartName}` : ''}
             </p>
           </>
         ) : (
