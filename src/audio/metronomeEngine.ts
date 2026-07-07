@@ -299,10 +299,14 @@ export class MetronomeEngine {
       beat.upcomingPartName &&
       beat.announceUpcomingPart
     ) {
-      // Free-text part names have no pre-recorded sample, so this one beat
-      // falls back to speechSynthesis instead of the "un" sample — replacing
-      // it entirely rather than layering both, same as the previous
-      // TTS-only count-in used to do for this beat.
+      // Free-text part names have no pre-recorded sample, so this beat can't
+      // use the "un" sample directly — but silencing the beat entirely while
+      // speechSynthesis catches up left a silent gap right on the beat,
+      // exactly when the band most needs to feel the tempo, and speech
+      // timing/duration isn't sample-accurate anyway. A plain (non-verbal)
+      // click keeps the pulse audible and unambiguous while the name plays
+      // over it.
+      this.playClick(time, beat.accent);
       this.announcePart(beat.upcomingPartName, time);
     } else if (beat.countInNumber !== null && this.voiceEnabled) {
       // Sample-accurate, same as the click: a real recorded voice saying

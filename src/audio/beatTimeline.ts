@@ -23,10 +23,10 @@ export interface TimelineBeat {
    * count-in (nothing follows it), and when the upcoming part is named "". */
   upcomingPartName: string | null;
   /** True when `upcomingPartName` (if set) should be spoken on the count-in's
-   * first beat instead of playing its "un" sample. False when the name was
-   * already announced separately beforehand — e.g. jumping to a part speaks
-   * its name up front, then plays a plain count-in, rather than speaking over
-   * beat one of the count-in itself. */
+   * first beat, layered over a plain click so the tempo pulse doesn't drop
+   * out. False when the name was already announced separately beforehand —
+   * e.g. jumping to a part speaks its name up front, then plays a plain
+   * count-in, so this beat doesn't need to announce anything itself. */
   announceUpcomingPart: boolean;
   /** True for the pre-roll measure played before the song's first real beat. */
   isPreRoll: boolean;
