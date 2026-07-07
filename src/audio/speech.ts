@@ -20,12 +20,30 @@ export function isSpeechSupported(): boolean {
   return supported();
 }
 
-export function speak(text: string): void {
-  if (!supported()) return;
+/** Speaks `text`, optionally invoking `onDone` once when the utterance
+ * finishes (normally or via error) — used to delay a count-in until the
+ * announcement has actually finished playing. Falls back to firing `onDone`
+ * immediately when speech isn't supported, so callers don't have to special-
+ * case that themselves. */
+export function speak(text: string, onDone?: () => void): void {
+  if (!supported()) {
+    onDone?.();
+    return;
+  }
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'fr-FR';
   if (frenchVoice) utterance.voice = frenchVoice;
   utterance.rate = 1;
+  if (onDone) {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      onDone();
+    };
+    utterance.onend = finish;
+    utterance.onerror = finish;
+  }
   window.speechSynthesis.speak(utterance);
 }
 

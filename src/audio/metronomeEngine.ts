@@ -1,4 +1,4 @@
-import { buildTimeline, type TimelineBeat } from './beatTimeline';
+import { buildCountInBeats, buildTimeline, type TimelineBeat } from './beatTimeline';
 import { loadCountSamples } from './countSamples';
 import { cancelSpeech, speak } from './speech';
 import type { Song } from '../types';
@@ -19,8 +19,12 @@ const START_DELAY_S = 0.12;
 const SAMPLE_FADE_OUT_S = 0.03;
 
 interface ScheduledNote {
-  index: number;
+  beat: TimelineBeat;
   time: number;
+  /** Index into `this.timeline` to adopt as `currentBeatIndex` once this note's
+   * audio time arrives, or null for a virtual count-in beat (jump pre-roll)
+   * that isn't part of the timeline. */
+  realIndex: number | null;
 }
 
 export class MetronomeEngine {
@@ -36,6 +40,10 @@ export class MetronomeEngine {
   private schedulerTimerId: number | null = null;
   private rafId: number | null = null;
   private scheduledNotes: ScheduledNote[] = [];
+  /** Virtual count-in beats to schedule before resuming from `nextBeatIndex`,
+   * used when jumping to a part so it gets its own announcement + count-in
+   * even though nothing in the timeline precedes it. */
+  private pendingPrefix: TimelineBeat[] = [];
   private pendingOscillators: OscillatorNode[] = [];
   private pendingSampleSources: AudioBufferSourceNode[] = [];
   private pendingSpeechTimeouts: number[] = [];
@@ -47,6 +55,11 @@ export class MetronomeEngine {
   /** "Un/deux/trois/quatre" spoken samples for the count-in, indexed 0-3. */
   private countSamples: (AudioBuffer | null)[] = [];
   private countSamplesRequested = false;
+
+  /** Bumped on every jumpToPart/play/pause/stop so a stale "announcement
+   * finished" callback from a superseded jump can't start a count-in after
+   * the user has since paused, stopped, or jumped elsewhere. */
+  private jumpGeneration = 0;
 
   constructor(callbacks: MetronomeCallbacks) {
     this.callbacks = callbacks;
@@ -108,6 +121,7 @@ export class MetronomeEngine {
   /** Starts (or resumes) playback. Defaults to resuming from the last known position. */
   play(fromBeatIndex?: number): void {
     if (this.timeline.length === 0) return;
+    this.jumpGeneration++;
     const ctx = this.ensureContext();
     const startIndex = Math.min(
       Math.max(fromBeatIndex ?? this.currentBeatIndex, 0),
@@ -117,6 +131,7 @@ export class MetronomeEngine {
     this.nextBeatIndex = startIndex;
     this.nextNoteTime = ctx.currentTime + START_DELAY_S;
     this.scheduledNotes = [];
+    this.pendingPrefix = [];
 
     this.status = 'playing';
     this.callbacks.onStatusChange('playing');
@@ -136,6 +151,7 @@ export class MetronomeEngine {
 
   pause(): void {
     if (this.status !== 'playing') return;
+    this.jumpGeneration++;
     this.clearTimers();
     this.cancelPendingAudio();
     this.status = 'paused';
@@ -143,32 +159,74 @@ export class MetronomeEngine {
   }
 
   stop(): void {
+    this.jumpGeneration++;
     this.clearTimers();
     this.cancelPendingAudio();
     this.currentBeatIndex = 0;
     this.nextBeatIndex = 0;
     this.scheduledNotes = [];
+    this.pendingPrefix = [];
     this.status = 'stopped';
     this.callbacks.onStatusChange('stopped');
     const firstBeat = this.getFirstRealBeat();
     if (firstBeat) this.callbacks.onBeat(firstBeat);
   }
 
-  /** Jumps directly to the first beat of the given part index (0-based), useful
-   * for rehearsing a specific section without replaying the whole song. */
+  /** Jumps to the first beat of the given part index (0-based), for rehearsing
+   * a specific section without replaying the whole song. Speaks the part's
+   * name up front and, only once that finishes, plays a fresh count-in before
+   * landing on its first beat — regardless of prior playback state — so the
+   * musician gets a clear spoken cue followed by a clean lead-in to come in
+   * with the click, rather than the name overlapping the count-in. */
   jumpToPart(partIndex: number): void {
     const idx = this.timeline.findIndex((b) => b.partIndex === partIndex);
     if (idx === -1) return;
-    const wasPlaying = this.status === 'playing';
+    const target = this.timeline[idx];
+    const ctx = this.ensureContext();
+
     this.clearTimers();
     this.cancelPendingAudio();
     this.scheduledNotes = [];
+    this.pendingPrefix = [];
     this.currentBeatIndex = idx;
     this.nextBeatIndex = idx;
-    if (wasPlaying) {
-      this.play(idx);
+
+    this.status = 'playing';
+    this.callbacks.onStatusChange('playing');
+
+    const generation = ++this.jumpGeneration;
+    // Shown immediately while the name is (maybe) being spoken, before the
+    // count-in's own beats start arriving via onBeat — beatInMeasure -1 so no
+    // beat dot lights up yet.
+    this.callbacks.onBeat({
+      globalIndex: -1,
+      partIndex: -1,
+      partName: '',
+      measureInPart: -1,
+      totalMeasuresInPart: 0,
+      beatInMeasure: -1,
+      beatsPerMeasure: target.beatsPerMeasure,
+      accent: false,
+      countInNumber: null,
+      upcomingPartName: target.partName || null,
+      announceUpcomingPart: false,
+      isPreRoll: true,
+    });
+
+    const startCountIn = (): void => {
+      // A later jump/play/pause/stop has since superseded this announcement.
+      if (generation !== this.jumpGeneration) return;
+      this.nextNoteTime = ctx.currentTime + START_DELAY_S;
+      this.pendingPrefix = buildCountInBeats(target.beatsPerMeasure, target.partName || null, false);
+      this.callbacks.onBeat(this.pendingPrefix[0]);
+      this.runScheduler();
+      this.runUiLoop();
+    };
+
+    if (this.voiceEnabled && target.partName !== '') {
+      speak(target.partName, startCountIn);
     } else {
-      this.callbacks.onBeat(this.timeline[idx]);
+      startCountIn();
     }
   }
 
@@ -213,22 +271,34 @@ export class MetronomeEngine {
 
   private runScheduler = (): void => {
     const ctx = this.ctx!;
-    while (
-      this.nextBeatIndex < this.timeline.length &&
-      this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_S
-    ) {
-      this.scheduleBeat(this.nextBeatIndex, this.nextNoteTime);
+    while (this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_S) {
+      let beat: TimelineBeat;
+      let realIndex: number | null;
+      if (this.pendingPrefix.length > 0) {
+        beat = this.pendingPrefix.shift()!;
+        realIndex = null;
+      } else if (this.nextBeatIndex < this.timeline.length) {
+        beat = this.timeline[this.nextBeatIndex];
+        realIndex = this.nextBeatIndex;
+        this.nextBeatIndex++;
+      } else {
+        break;
+      }
+      this.scheduleBeat(beat, this.nextNoteTime, realIndex);
       this.nextNoteTime += 60 / this.bpm;
-      this.nextBeatIndex++;
     }
-    if (this.nextBeatIndex < this.timeline.length) {
+    if (this.nextBeatIndex < this.timeline.length || this.pendingPrefix.length > 0) {
       this.schedulerTimerId = window.setTimeout(this.runScheduler, LOOKAHEAD_MS);
     }
   };
 
-  private scheduleBeat(index: number, time: number): void {
-    const beat = this.timeline[index];
-    if (beat.countInNumber === 1 && this.voiceEnabled && beat.upcomingPartName) {
+  private scheduleBeat(beat: TimelineBeat, time: number, realIndex: number | null): void {
+    if (
+      beat.countInNumber === 1 &&
+      this.voiceEnabled &&
+      beat.upcomingPartName &&
+      beat.announceUpcomingPart
+    ) {
       // Free-text part names have no pre-recorded sample, so this one beat
       // falls back to speechSynthesis instead of the "un" sample — replacing
       // it entirely rather than layering both, same as the previous
@@ -244,7 +314,7 @@ export class MetronomeEngine {
     } else {
       this.playClick(time, beat.accent);
     }
-    this.scheduledNotes.push({ index, time });
+    this.scheduledNotes.push({ beat, time, realIndex });
   }
 
   /** Speaks the upcoming part name at (approximately) its scheduled beat
@@ -334,13 +404,14 @@ export class MetronomeEngine {
 
       while (this.scheduledNotes.length && this.scheduledNotes[0].time <= now) {
         const note = this.scheduledNotes.shift()!;
-        this.currentBeatIndex = note.index;
-        this.callbacks.onBeat(this.timeline[note.index]);
+        if (note.realIndex !== null) this.currentBeatIndex = note.realIndex;
+        this.callbacks.onBeat(note.beat);
       }
 
       if (this.status !== 'playing') return;
 
-      const finishedScheduling = this.nextBeatIndex >= this.timeline.length;
+      const finishedScheduling =
+        this.nextBeatIndex >= this.timeline.length && this.pendingPrefix.length === 0;
       if (finishedScheduling && this.scheduledNotes.length === 0) {
         this.status = 'stopped';
         this.currentBeatIndex = 0;
