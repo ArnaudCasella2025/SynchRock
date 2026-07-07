@@ -211,6 +211,8 @@ export class MetronomeEngine {
       upcomingPartName: target.partName || null,
       announceUpcomingPart: false,
       isPreRoll: true,
+      subPartIndex: -1,
+      totalSubParts: 0,
     });
 
     const startCountIn = (): void => {

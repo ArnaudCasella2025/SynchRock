@@ -209,6 +209,11 @@ button.big {
   color: var(--text-dim);
 }
 
+.subpart-progress {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
 .next-part {
   margin-top: 10px;
   color: var(--text-dim);
@@ -346,7 +351,7 @@ button.big {
 
 .part-row {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -356,6 +361,12 @@ button.big {
 
 .part-row.dragging {
   opacity: 0.6;
+}
+
+.part-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .part-row-name {
@@ -369,7 +380,21 @@ button.big {
   font-size: 1rem;
 }
 
-.part-row-measures {
+.part-row-segments {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 34px;
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.segment-input {
   width: 56px;
   background: var(--surface-alt);
   color: var(--text);
@@ -380,7 +405,12 @@ button.big {
   font-size: 1rem;
 }
 
-.part-row-unit {
+.segment-unit {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.segments-total {
   color: var(--text-dim);
   font-size: 0.85rem;
 }
@@ -390,6 +420,11 @@ button.big {
   color: var(--text-dim);
   padding: 6px 8px;
   font-size: 1.2rem;
+}
+
+.icon-btn.small {
+  padding: 2px 6px;
+  font-size: 1rem;
 }
 
 .icon-btn:hover {
