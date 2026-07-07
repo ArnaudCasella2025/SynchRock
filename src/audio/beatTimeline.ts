@@ -30,6 +30,12 @@ export interface TimelineBeat {
   announceUpcomingPart: boolean;
   /** True for the pre-roll measure played before the song's first real beat. */
   isPreRoll: boolean;
+  /** 0-based index of the current sub-part within the part (see `Part.subParts`
+   * in types.ts). Always 0 when the part has no subdivision. -1 during the
+   * pre-roll count-in. */
+  subPartIndex: number;
+  /** Number of sub-parts in the current part (1 when it has no subdivision). */
+  totalSubParts: number;
 }
 
 /** Builds a standalone pre-roll measure (partIndex -1) with "un/deux/trois/
@@ -58,6 +64,8 @@ export function buildCountInBeats(
       upcomingPartName,
       announceUpcomingPart: announce,
       isPreRoll: true,
+      subPartIndex: -1,
+      totalSubParts: 0,
     });
   }
   return beats;
@@ -81,28 +89,44 @@ export function buildTimeline(song: Song): TimelineBeat[] {
   song.parts.forEach((part, partIndex) => {
     const beatsPerMeasure =
       part.beatsPerMeasure ?? song.beatsPerMeasure ?? DEFAULT_BEATS_PER_MEASURE;
+    const subParts = part.subParts ?? [part.nbMeasure];
     const lastMeasureInPart = part.nbMeasure - 1;
     const nextPart = song.parts[partIndex + 1];
 
-    for (let measureInPart = 0; measureInPart < part.nbMeasure; measureInPart++) {
-      for (let beatInMeasure = 0; beatInMeasure < beatsPerMeasure; beatInMeasure++) {
-        const isCountInMeasure = measureInPart === lastMeasureInPart;
-        beats.push({
-          globalIndex: globalIndex++,
-          partIndex,
-          partName: part.partName,
-          measureInPart,
-          totalMeasuresInPart: part.nbMeasure,
-          beatInMeasure,
-          beatsPerMeasure,
-          accent: beatInMeasure === 0,
-          countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
-          upcomingPartName: isCountInMeasure ? nextPart?.partName || null : null,
-          announceUpcomingPart: true,
-          isPreRoll: false,
-        });
+    // Map each (0-based) measureInPart to the sub-part it belongs to, so a
+    // count-in fires at the end of every sub-part, not just the part's own
+    // last measure.
+    let measureInPart = 0;
+    subParts.forEach((subPartLength, subPartIndex) => {
+      const lastMeasureInSubPart = measureInPart + subPartLength - 1;
+
+      for (let i = 0; i < subPartLength; i++, measureInPart++) {
+        const isCountInMeasure = measureInPart === lastMeasureInSubPart;
+        const isEndOfPart = measureInPart === lastMeasureInPart;
+
+        for (let beatInMeasure = 0; beatInMeasure < beatsPerMeasure; beatInMeasure++) {
+          beats.push({
+            globalIndex: globalIndex++,
+            partIndex,
+            partName: part.partName,
+            measureInPart,
+            totalMeasuresInPart: part.nbMeasure,
+            beatInMeasure,
+            beatsPerMeasure,
+            accent: beatInMeasure === 0,
+            countInNumber: isCountInMeasure ? beatInMeasure + 1 : null,
+            // Only the part's very last sub-part announces what comes next;
+            // an interior sub-part boundary is just a plain count-in that
+            // continues within the same part.
+            upcomingPartName: isCountInMeasure && isEndOfPart ? nextPart?.partName || null : null,
+            announceUpcomingPart: true,
+            isPreRoll: false,
+            subPartIndex,
+            totalSubParts: subParts.length,
+          });
+        }
       }
-    }
+    });
   });
 
   return beats;

@@ -3,6 +3,13 @@ export interface Part {
   nbMeasure: number;
   /** Overrides the song's default beats-per-measure for this part only. */
   beatsPerMeasure?: number;
+  /** Splits this part into consecutive sub-sections, each measured in bars,
+   * that must sum to `nbMeasure`. The last measure of every sub-part plays a
+   * plain "un, deux, trois, quatre" count-in before continuing within the
+   * same part; only the very last sub-part's count-in also announces the
+   * next part, exactly as when a part has no subdivision at all. Omit for a
+   * part with no internal count-in checkpoints (equivalent to `[nbMeasure]`). */
+  subParts?: number[];
 }
 
 export interface Song {
@@ -22,14 +29,26 @@ export const DEFAULT_BEATS_PER_MEASURE = 4;
 export function isValidPart(value: unknown): value is Part {
   if (typeof value !== 'object' || value === null) return false;
   const p = value as Record<string, unknown>;
-  return (
-    typeof p.partName === 'string' &&
-    typeof p.nbMeasure === 'number' &&
-    Number.isFinite(p.nbMeasure) &&
-    p.nbMeasure > 0 &&
-    (p.beatsPerMeasure === undefined ||
-      (typeof p.beatsPerMeasure === 'number' && p.beatsPerMeasure > 0))
-  );
+  if (
+    typeof p.partName !== 'string' ||
+    typeof p.nbMeasure !== 'number' ||
+    !Number.isFinite(p.nbMeasure) ||
+    p.nbMeasure <= 0 ||
+    (p.beatsPerMeasure !== undefined &&
+      !(typeof p.beatsPerMeasure === 'number' && p.beatsPerMeasure > 0))
+  ) {
+    return false;
+  }
+  if (p.subParts !== undefined) {
+    if (!Array.isArray(p.subParts) || p.subParts.length === 0) return false;
+    let sum = 0;
+    for (const n of p.subParts) {
+      if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return false;
+      sum += n;
+    }
+    if (sum !== p.nbMeasure) return false;
+  }
+  return true;
 }
 
 export function isValidSong(value: unknown): value is Song {

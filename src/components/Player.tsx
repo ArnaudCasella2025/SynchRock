@@ -74,6 +74,11 @@ export function Player({ song, onBack }: Props) {
             <span className="measure-progress">
               Mesure {beat.measureInPart + 1} / {beat.totalMeasuresInPart}
             </span>
+            {beat.totalSubParts > 1 && (
+              <span className="subpart-progress">
+                Sous-partie {beat.subPartIndex + 1} / {beat.totalSubParts}
+              </span>
+            )}
             <p className="next-part">
               {isLastPart
                 ? 'Dernière partie'
@@ -143,7 +148,12 @@ export function Player({ song, onBack }: Props) {
           >
             <button type="button" onClick={() => jumpToPart(index)}>
               <span className="part-item-name">{part.partName}</span>
-              <span className="part-item-measures">{part.nbMeasure} mes.</span>
+              <span className="part-item-measures">
+                {part.nbMeasure} mes.
+                {part.subParts && part.subParts.length > 1
+                  ? ` · ${part.subParts.length} sous-parties`
+                  : ''}
+              </span>
             </button>
           </li>
         ))}

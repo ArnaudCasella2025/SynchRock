@@ -10,12 +10,33 @@ interface Props {
   onCancel: () => void;
 }
 
-interface EditablePart extends Part {
+/** A part's measures as an editable list of segments — one segment per
+ * sub-part. A part with no subdivision is just a single segment, so this
+ * doubles as the plain "number of measures" field in that common case. */
+interface EditablePart {
   _id: string;
+  partName: string;
+  beatsPerMeasure?: number;
+  segments: number[];
 }
 
 function toEditableParts(parts: Part[]): EditablePart[] {
-  return parts.map((p) => ({ ...p, _id: crypto.randomUUID() }));
+  return parts.map((p) => ({
+    _id: crypto.randomUUID(),
+    partName: p.partName,
+    beatsPerMeasure: p.beatsPerMeasure,
+    segments: p.subParts ?? [p.nbMeasure],
+  }));
+}
+
+function toPart(p: EditablePart): Part {
+  const part: Part = {
+    partName: p.partName,
+    nbMeasure: p.segments.reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0),
+  };
+  if (p.beatsPerMeasure !== undefined) part.beatsPerMeasure = p.beatsPerMeasure;
+  if (p.segments.length > 1) part.subParts = p.segments;
+  return part;
 }
 
 export function SongEditor({ song, onSave, onCancel }: Props) {
@@ -28,19 +49,26 @@ export function SongEditor({ song, onSave, onCancel }: Props) {
 
   const { setItemRef, handlePointerDown, draggingItem } = useDragReorder(parts, setParts);
 
-  function updatePart(id: string, patch: Partial<Pick<EditablePart, 'partName' | 'nbMeasure'>>) {
-    setParts((current) => current.map((p) => (p._id === id ? { ...p, ...patch } : p)));
+  function updatePartName(id: string, partName: string) {
+    setParts((current) => current.map((p) => (p._id === id ? { ...p, partName } : p)));
   }
 
   function addPart() {
-    setParts((current) => [...current, { partName: '', nbMeasure: 4, _id: crypto.randomUUID() }]);
+    setParts((current) => [
+      ...current,
+      { _id: crypto.randomUUID(), partName: '', segments: [4] },
+    ]);
   }
 
   function duplicatePart(id: string) {
     setParts((current) => {
       const index = current.findIndex((p) => p._id === id);
       if (index === -1) return current;
-      const copy: EditablePart = { ...current[index], _id: crypto.randomUUID() };
+      const copy: EditablePart = {
+        ...current[index],
+        _id: crypto.randomUUID(),
+        segments: [...current[index].segments],
+      };
       return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
     });
   }
@@ -49,17 +77,42 @@ export function SongEditor({ song, onSave, onCancel }: Props) {
     setParts((current) => current.filter((p) => p._id !== id));
   }
 
+  function updateSegment(partId: string, segIndex: number, value: number) {
+    setParts((current) =>
+      current.map((p) =>
+        p._id === partId
+          ? { ...p, segments: p.segments.map((n, i) => (i === segIndex ? value : n)) }
+          : p
+      )
+    );
+  }
+
+  function addSegment(partId: string) {
+    setParts((current) =>
+      current.map((p) => (p._id === partId ? { ...p, segments: [...p.segments, 4] } : p))
+    );
+  }
+
+  function removeSegment(partId: string, segIndex: number) {
+    setParts((current) =>
+      current.map((p) =>
+        p._id === partId && p.segments.length > 1
+          ? { ...p, segments: p.segments.filter((_, i) => i !== segIndex) }
+          : p
+      )
+    );
+  }
+
   function handleSave() {
-    const cleanParts: Part[] = parts.map(({ _id, ...rest }) => rest);
     const candidate: Song = {
       ...(song ?? {}),
       titre: titre.trim(),
       bpm,
-      parts: cleanParts,
+      parts: parts.map(toPart),
     };
     if (!isValidSong(candidate)) {
       setError(
-        'Vérifie le titre, le tempo (supérieur à 0) et que chaque partie ait un nombre de mesures valide (supérieur à 0).'
+        'Vérifie le titre, le tempo (supérieur à 0) et que chaque partie/sous-partie ait un nombre de mesures valide (supérieur à 0).'
       );
       return;
     }
@@ -101,53 +154,85 @@ export function SongEditor({ song, onSave, onCancel }: Props) {
       <div className="parts-editor">
         <h2>Parties</h2>
         <ul className="parts-editor-list">
-          {parts.map((part, index) => (
-            <li
-              key={part._id}
-              ref={setItemRef(part)}
-              className={'part-row' + (draggingItem === part ? ' dragging' : '')}
-            >
-              <button
-                type="button"
-                className="drag-handle"
-                aria-label="Réordonner cette partie"
-                onPointerDown={handlePointerDown(part)}
+          {parts.map((part, index) => {
+            const total = part.segments.reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0);
+            return (
+              <li
+                key={part._id}
+                ref={setItemRef(part)}
+                className={'part-row' + (draggingItem === part ? ' dragging' : '')}
               >
-                ⠿
-              </button>
-              <input
-                type="text"
-                className="part-row-name"
-                value={part.partName}
-                placeholder={`Partie ${index + 1}`}
-                onChange={(e) => updatePart(part._id, { partName: e.target.value })}
-              />
-              <input
-                type="number"
-                className="part-row-measures"
-                min={1}
-                value={Number.isNaN(part.nbMeasure) ? '' : part.nbMeasure}
-                onChange={(e) => updatePart(part._id, { nbMeasure: e.target.valueAsNumber })}
-              />
-              <span className="part-row-unit">mes.</span>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label="Dupliquer cette partie"
-                onClick={() => duplicatePart(part._id)}
-              >
-                &#10697;
-              </button>
-              <button
-                type="button"
-                className="icon-btn danger"
-                aria-label="Supprimer cette partie"
-                onClick={() => removePart(part._id)}
-              >
-                &times;
-              </button>
-            </li>
-          ))}
+                <div className="part-row-main">
+                  <button
+                    type="button"
+                    className="drag-handle"
+                    aria-label="Réordonner cette partie"
+                    onPointerDown={handlePointerDown(part)}
+                  >
+                    ⠿
+                  </button>
+                  <input
+                    type="text"
+                    className="part-row-name"
+                    value={part.partName}
+                    placeholder={`Partie ${index + 1}`}
+                    onChange={(e) => updatePartName(part._id, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label="Dupliquer cette partie"
+                    onClick={() => duplicatePart(part._id)}
+                  >
+                    &#10697;
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    aria-label="Supprimer cette partie"
+                    onClick={() => removePart(part._id)}
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="part-row-segments">
+                  {part.segments.map((len, segIndex) => (
+                    <div className="segment" key={segIndex}>
+                      <input
+                        type="number"
+                        min={1}
+                        className="segment-input"
+                        value={Number.isNaN(len) ? '' : len}
+                        onChange={(e) => updateSegment(part._id, segIndex, e.target.valueAsNumber)}
+                      />
+                      <span className="segment-unit">mes.</span>
+                      {part.segments.length > 1 && (
+                        <button
+                          type="button"
+                          className="icon-btn small"
+                          aria-label="Supprimer cette sous-partie"
+                          onClick={() => removeSegment(part._id, segIndex)}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="icon-btn small"
+                    aria-label="Ajouter une sous-partie"
+                    onClick={() => addSegment(part._id)}
+                  >
+                    +
+                  </button>
+                  {part.segments.length > 1 && (
+                    <span className="segments-total">= {total} mesures</span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
         <button type="button" className="secondary" onClick={addPart}>
           + Ajouter une partie
