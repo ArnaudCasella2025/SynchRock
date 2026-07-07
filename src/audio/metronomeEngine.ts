@@ -228,7 +228,13 @@ export class MetronomeEngine {
 
   private scheduleBeat(index: number, time: number): void {
     const beat = this.timeline[index];
-    if (beat.countInNumber !== null && this.voiceEnabled) {
+    if (beat.countInNumber === 1 && this.voiceEnabled && beat.upcomingPartName) {
+      // Free-text part names have no pre-recorded sample, so this one beat
+      // falls back to speechSynthesis instead of the "un" sample — replacing
+      // it entirely rather than layering both, same as the previous
+      // TTS-only count-in used to do for this beat.
+      this.announcePart(beat.upcomingPartName, time);
+    } else if (beat.countInNumber !== null && this.voiceEnabled) {
       // Sample-accurate, same as the click: a real recorded voice saying
       // "un/deux/trois/quatre" scheduled directly on the audio graph, with
       // none of speechSynthesis's queuing or engine-startup latency. Cut off
@@ -239,6 +245,22 @@ export class MetronomeEngine {
       this.playClick(time, beat.accent);
     }
     this.scheduledNotes.push({ index, time });
+  }
+
+  /** Speaks the upcoming part name at (approximately) its scheduled beat
+   * time. Scheduled via a plain timeout rather than the audio graph since
+   * speechSynthesis has no sample-accurate API — acceptable here because
+   * this fires at most once per count-in, unlike the digit samples which
+   * need tight per-beat sync. */
+  private announcePart(partName: string, time: number): void {
+    const ctx = this.ctx!;
+    const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
+    const timeoutId = window.setTimeout(() => {
+      this.pendingSpeechTimeouts = this.pendingSpeechTimeouts.filter((id) => id !== timeoutId);
+      cancelSpeech();
+      speak(partName);
+    }, delayMs);
+    this.pendingSpeechTimeouts.push(timeoutId);
   }
 
   private playCountSample(time: number, countInNumber: number, cutoffTime: number): void {
