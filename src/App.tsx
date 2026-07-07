@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 import { SongList } from './components/SongList';
-import { SongImport } from './components/SongImport';
+import { SongEditor } from './components/SongEditor';
 import { Player } from './components/Player';
 import { loadSongs, mergeSongs, saveSongs } from './storage';
 import { parseSongLibrary } from './types';
 import type { Song } from './types';
 
-type View = { name: 'list' } | { name: 'player'; index: number };
+type View =
+  | { name: 'list' }
+  | { name: 'player'; index: number }
+  | { name: 'edit'; index: number | null };
 
 function App() {
   const [songs, setSongs] = useState<Song[]>(() => loadSongs());
   const [view, setView] = useState<View>({ name: 'list' });
-  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}songs.json`)
@@ -26,7 +28,8 @@ function App() {
         });
       })
       .catch(() => {
-        // No shared setlist shipped with this deployment; local imports still work.
+        // No shared setlist shipped with this deployment; songs created/edited
+        // locally still work.
       });
   }, []);
 
@@ -35,13 +38,13 @@ function App() {
     saveSongs(next);
   }
 
-  function handleImport(imported: Song[]) {
-    updateSongs(mergeSongs(songs, imported));
-    setImportOpen(false);
-  }
-
   function handleDelete(index: number) {
     updateSongs(songs.filter((_, i) => i !== index));
+  }
+
+  function handleSaveSong(song: Song, index: number | null) {
+    updateSongs(index === null ? [...songs, song] : songs.map((s, i) => (i === index ? song : s)));
+    setView({ name: 'list' });
   }
 
   return (
@@ -50,14 +53,22 @@ function App() {
         <SongList
           songs={songs}
           onSelect={(index) => setView({ name: 'player', index })}
+          onEdit={(index) => setView({ name: 'edit', index })}
           onDelete={handleDelete}
-          onOpenImport={() => setImportOpen(true)}
+          onCreate={() => setView({ name: 'edit', index: null })}
+          onReorder={updateSongs}
         />
       )}
       {view.name === 'player' && songs[view.index] && (
         <Player song={songs[view.index]} onBack={() => setView({ name: 'list' })} />
       )}
-      {importOpen && <SongImport onImport={handleImport} onClose={() => setImportOpen(false)} />}
+      {view.name === 'edit' && (
+        <SongEditor
+          song={view.index !== null ? songs[view.index] : null}
+          onSave={(song) => handleSaveSong(song, view.index)}
+          onCancel={() => setView({ name: 'list' })}
+        />
+      )}
     </>
   );
 }

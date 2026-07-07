@@ -66,7 +66,7 @@ button.big {
   color: var(--text-dim);
 }
 
-.import-btn {
+.add-song-btn {
   width: 100%;
 }
 
@@ -86,6 +86,22 @@ button.big {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
+}
+
+.card.dragging {
+  opacity: 0.6;
+}
+
+.drag-handle {
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 0;
+  padding: 0 10px;
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
 }
 
 .card-main {
@@ -109,6 +125,18 @@ button.big {
   font-size: 0.85rem;
 }
 
+.card-edit {
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 0;
+  font-size: 1.2rem;
+  padding: 0 14px;
+}
+
+.card-edit:hover {
+  color: var(--accent);
+}
+
 .card-delete {
   background: transparent;
   color: var(--text-dim);
@@ -119,51 +147,6 @@ button.big {
 
 .card-delete:hover {
   color: var(--accent);
-}
-
-/* --- Import modal --- */
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 10;
-}
-
-.modal {
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 20px;
-  width: 100%;
-  max-width: 520px;
-  max-height: 90vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px solid var(--border);
-}
-
-.modal textarea {
-  width: 100%;
-  background: var(--surface-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.85rem;
-  resize: vertical;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 /* --- Player --- */
@@ -311,4 +294,104 @@ button.big {
 .part-item-measures {
   color: var(--text-dim);
   font-size: 0.85rem;
+}
+
+/* --- Song editor --- */
+
+.editor {
+  padding: 16px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+}
+
+.field input[type='text'],
+.field input[type='number'] {
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
+.parts-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.parts-editor h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.parts-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.part-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.part-row.dragging {
+  opacity: 0.6;
+}
+
+.part-row-name {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 1rem;
+}
+
+.part-row-measures {
+  width: 56px;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.part-row-unit {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.icon-btn {
+  background: transparent;
+  color: var(--text-dim);
+  padding: 6px 8px;
+  font-size: 1.2rem;
+}
+
+.icon-btn:hover {
+  color: var(--accent);
 }
