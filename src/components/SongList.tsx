@@ -1,13 +1,18 @@
+import { useDragReorder } from '../hooks/useDragReorder';
 import type { Song } from '../types';
 
 interface Props {
   songs: Song[];
   onSelect: (index: number) => void;
+  onEdit: (index: number) => void;
   onDelete: (index: number) => void;
-  onOpenImport: () => void;
+  onCreate: () => void;
+  onReorder: (next: Song[]) => void;
 }
 
-export function SongList({ songs, onSelect, onDelete, onOpenImport }: Props) {
+export function SongList({ songs, onSelect, onEdit, onDelete, onCreate, onReorder }: Props) {
+  const { setItemRef, handlePointerDown, draggingItem } = useDragReorder(songs, onReorder);
+
   return (
     <div className="song-list">
       <header className="app-header">
@@ -17,20 +22,40 @@ export function SongList({ songs, onSelect, onDelete, onOpenImport }: Props) {
         </p>
       </header>
 
-      <button type="button" className="primary import-btn" onClick={onOpenImport}>
-        + Importer un JSON de chansons
+      <button type="button" className="primary add-song-btn" onClick={onCreate}>
+        + Nouvelle chanson
       </button>
 
       <ul className="cards">
         {songs.map((song, index) => {
           const totalMeasures = song.parts.reduce((sum, p) => sum + p.nbMeasure, 0);
           return (
-            <li key={`${song.titre}-${index}`} className="card">
+            <li
+              key={`${song.titre}-${index}`}
+              ref={setItemRef(song)}
+              className={'card' + (draggingItem === song ? ' dragging' : '')}
+            >
+              <button
+                type="button"
+                className="drag-handle"
+                aria-label={`Réordonner ${song.titre}`}
+                onPointerDown={handlePointerDown(song)}
+              >
+                ⠿
+              </button>
               <button type="button" className="card-main" onClick={() => onSelect(index)}>
                 <span className="card-title">{song.titre}</span>
                 <span className="card-meta">
                   {song.bpm} BPM &middot; {song.parts.length} parties &middot; {totalMeasures} mesures
                 </span>
+              </button>
+              <button
+                type="button"
+                className="card-edit"
+                aria-label={`Modifier ${song.titre}`}
+                onClick={() => onEdit(index)}
+              >
+                &#9998;
               </button>
               <button
                 type="button"
@@ -45,7 +70,7 @@ export function SongList({ songs, onSelect, onDelete, onOpenImport }: Props) {
         })}
       </ul>
 
-      {songs.length === 0 && <p className="hint">Aucune chanson. Importez un JSON pour commencer.</p>}
+      {songs.length === 0 && <p className="hint">Aucune chanson. Crée-en une pour commencer.</p>}
     </div>
   );
 }
