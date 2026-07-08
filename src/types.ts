@@ -20,10 +20,6 @@ export interface Song {
   parts: Part[];
 }
 
-export interface SongLibraryFile {
-  songs: Song[];
-}
-
 export const DEFAULT_BEATS_PER_MEASURE = 4;
 
 export function isValidPart(value: unknown): value is Part {
@@ -66,43 +62,4 @@ export function isValidSong(value: unknown): value is Song {
     s.parts.length > 0 &&
     s.parts.every(isValidPart)
   );
-}
-
-/** Parses and validates a raw JSON string into a list of songs. Accepts either
- * `{ songs: [...] }` or a bare `[...]` / single song object. */
-export function parseSongLibrary(raw: string): Song[] {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new Error('JSON invalide : impossible de parser le fichier.');
-  }
-
-  let candidates: unknown[];
-  if (Array.isArray(data)) {
-    candidates = data;
-  } else if (
-    typeof data === 'object' &&
-    data !== null &&
-    Array.isArray((data as Record<string, unknown>).songs)
-  ) {
-    candidates = (data as SongLibraryFile).songs;
-  } else if (typeof data === 'object' && data !== null && 'titre' in data) {
-    candidates = [data];
-  } else {
-    throw new Error(
-      'Structure JSON inattendue : attendu { "songs": [...] } ou une liste de chansons.'
-    );
-  }
-
-  const songs: Song[] = [];
-  candidates.forEach((c, i) => {
-    if (!isValidSong(c)) {
-      throw new Error(
-        `Chanson invalide à l'index ${i} : champs requis "titre" (string), "bpm" (number), "parts" (liste de { partName, nbMeasure }).`
-      );
-    }
-    songs.push(c);
-  });
-  return songs;
 }

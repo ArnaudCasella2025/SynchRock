@@ -3,8 +3,7 @@ import './App.css';
 import { SongList } from './components/SongList';
 import { SongEditor } from './components/SongEditor';
 import { Player } from './components/Player';
-import { loadSongs, mergeSongs, saveSongs } from './storage';
-import { parseSongLibrary } from './types';
+import { loadLegacySongs, subscribeSongs, saveSongs } from './storage';
 import type { Song } from './types';
 
 type View =
@@ -13,29 +12,39 @@ type View =
   | { name: 'edit'; index: number | null };
 
 function App() {
-  const [songs, setSongs] = useState<Song[]>(() => loadSongs());
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState<View>({ name: 'list' });
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}songs.json`)
-      .then((res) => (res.ok ? res.text() : Promise.reject(new Error('not found'))))
-      .then((raw) => {
-        const bundled = parseSongLibrary(raw);
-        setSongs((current) => {
-          const merged = mergeSongs(current, bundled);
-          saveSongs(merged);
-          return merged;
-        });
-      })
-      .catch(() => {
-        // No shared setlist shipped with this deployment; songs created/edited
-        // locally still work.
-      });
+    // Live setlist shared by every visitor: fires immediately from the local
+    // (offline-capable) cache, then again whenever anyone — this browser or
+    // another — writes a change.
+    let checkedLegacy = false;
+    return subscribeSongs((next) => {
+      if (!checkedLegacy) {
+        checkedLegacy = true;
+        if (next.length === 0) {
+          // Nothing in the shared setlist yet — if this browser has songs
+          // from before it existed, seed the shared setlist with them
+          // instead of silently losing that work.
+          const legacy = loadLegacySongs();
+          if (legacy.length > 0) {
+            setSongs(legacy);
+            setLoaded(true);
+            void saveSongs(legacy);
+            return;
+          }
+        }
+      }
+      setSongs(next);
+      setLoaded(true);
+    });
   }, []);
 
   function updateSongs(next: Song[]) {
     setSongs(next);
-    saveSongs(next);
+    void saveSongs(next);
   }
 
   function handleDelete(index: number) {
@@ -45,6 +54,10 @@ function App() {
   function handleSaveSong(song: Song, index: number | null) {
     updateSongs(index === null ? [...songs, song] : songs.map((s, i) => (i === index ? song : s)));
     setView({ name: 'list' });
+  }
+
+  if (!loaded) {
+    return <p className="hint">Chargement du setlist…</p>;
   }
 
   return (
