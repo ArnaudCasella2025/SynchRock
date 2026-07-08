@@ -7,17 +7,18 @@ arrive, environ une mesure à l'avance. Application web, aucune
 installation : une seule page ouverte dans un navigateur (téléphone,
 tablette, ordinateur) branché sur une enceinte.
 
-Pensée pour un seul appareil partagé par le groupe pendant la répétition
-(pas de synchronisation réseau entre plusieurs téléphones).
+Le setlist est partagé en direct entre tous les visiteurs du site (base de
+données Firebase, voir plus bas) : ce que quelqu'un ajoute, modifie ou
+réordonne apparaît chez tout le monde sans avoir à recharger la page.
 
 ## Utiliser l'app
 
-1. Le setlist du groupe (`public/songs.json`) se charge automatiquement à
-   l'ouverture de la page : tout le monde voit les mêmes chansons, sur
-   n'importe quel appareil. Pour ajouter ou modifier une chanson ponctuelle
-   (pas dans le setlist partagé), le bouton "+ Nouvelle chanson" ouvre un
-   éditeur intégré (titre, tempo, parties) et sauvegarde dans le navigateur
-   (`localStorage`) ; chaque chanson a aussi un bouton ✎ pour la modifier.
+1. Le setlist se charge automatiquement à l'ouverture de la page — tout le
+   monde voit et modifie les mêmes chansons, sur n'importe quel appareil.
+   Le bouton "+ Nouvelle chanson" ouvre un éditeur intégré (titre, tempo,
+   parties) ; chaque chanson a aussi un bouton ✎ pour la modifier. Pour
+   l'instant, n'importe quel visiteur peut modifier le setlist partagé (pas
+   encore de comptes / permissions par utilisateur, voir plus bas).
 2. Choisir une chanson dans la liste.
 3. Lancer la lecture : le titre est annoncé, suivi d'un décompte ("un, deux,
    trois, quatre"...) sur la première mesure, puis le clic tourne et le nom
@@ -87,20 +88,57 @@ comme une partie sans subdivision.
 - `subParts` (optionnel) : liste du nombre de mesures de chaque sous-partie,
   qui doit sommer à `nbMeasure`. Voir plus haut. Omis (ou absent) pour une
   partie sans subdivision.
-- Un fichier peut aussi être une chanson unique (objet `{ titre, bpm, parts }`)
-  ou une liste `[...]` de chansons, sans la clé `songs`.
 
-## Le setlist partagé (`public/songs.json`)
+C'est la forme des données telle que sauvegardée dans Firestore (voir plus
+bas), pas un fichier à éditer à la main.
 
-Ce fichier est la source de vérité pour tout le groupe : modifie-le (mêmes
-champs que ci-dessus, sous une clé `"songs"`), commit, push sur `main` — le
-déploiement automatique republie le site et tout le monde voit le nouveau
-setlist à la prochaine ouverture de la page. C'est distinct des imports
-manuels (ponctuels, propres à chaque navigateur).
+## Base de données partagée (Firebase)
+
+Le setlist vit dans un unique document Firestore (`setlists/shared`, un
+objet `{ songs: [...] }`), lu et écrit par tous les visiteurs en temps réel
+via le SDK Firebase côté navigateur — pas de serveur à héberger, le site
+reste 100% statique sur GitHub Pages.
+
+**Mise en place (une fois)** :
+
+1. Créer un projet sur [console.firebase.google.com](https://console.firebase.google.com)
+   (gratuit à ce niveau d'usage).
+2. Dans le projet, activer **Firestore Database** (mode production ou test,
+   peu importe — les règles ci-dessous s'appliquent dans les deux cas).
+3. Dans **Règles** de Firestore, coller :
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /setlists/{setlistId} {
+         allow read, write: if true;
+       }
+     }
+   }
+   ```
+   ⚠️ Ces règles sont volontairement ouvertes (lecture **et écriture** pour
+   n'importe qui connaissant l'URL du site) — cohérent avec "partagé avec
+   tous les visiteurs" pour l'instant, mais ça veut dire que n'importe qui
+   peut aussi modifier ou effacer le setlist. À restreindre le jour où un
+   système de comptes/permissions est ajouté (Firebase Auth + règles basées
+   sur l'utilisateur).
+4. Ajouter une application web au projet (icône `</>`) pour obtenir les
+   valeurs de config (`apiKey`, `authDomain`, `projectId`,
+   `storageBucket`, `messagingSenderId`, `appId`).
+5. Renseigner ces valeurs comme **secrets du dépôt GitHub**
+   (`Settings → Secrets and variables → Actions → New repository secret`),
+   un secret par variable listée dans `.env.example`
+   (`VITE_FIREBASE_API_KEY`, etc.) — le workflow de déploiement les injecte
+   au moment du build.
+
+Ces valeurs ne sont pas des secrets à proprement parler (elles identifient
+le projet, l'accès est contrôlé par les règles Firestore ci-dessus), mais
+les passer en secrets GitHub évite de les committer en clair.
 
 ## Développement
 
 ```bash
+cp .env.example .env.local   # renseigner les valeurs Firebase (voir ci-dessus)
 npm install
 npm run dev      # serveur de développement
 npm run build    # build de production dans dist/
