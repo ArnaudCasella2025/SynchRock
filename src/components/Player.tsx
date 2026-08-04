@@ -9,10 +9,11 @@ interface Props {
 }
 
 export function Player({ song, onBack }: Props) {
-  const { status, beat, play, pause, stop, jumpToPart, setClickVolume, setVoiceEnabled } =
+  const { status, beat, play, pause, stop, jumpToPart, setClickVolume, setVoiceEnabled, setVoiceVolume } =
     useMetronome(song);
   const [volume, setVolume] = useState(1);
   const [voiceOn, setVoiceOn] = useState(true);
+  const [voiceVolume, setVoiceVolumeState] = useState(1);
 
   if (!beat) {
     return (
@@ -42,6 +43,11 @@ export function Player({ song, onBack }: Props) {
   function handleVoiceToggle(on: boolean) {
     setVoiceOn(on);
     setVoiceEnabled(on);
+  }
+
+  function handleVoiceVolumeChange(v: number) {
+    setVoiceVolumeState(v);
+    setVoiceVolume(v);
   }
 
   return (
@@ -137,6 +143,18 @@ export function Player({ song, onBack }: Props) {
           />
           Annonce vocale des parties
           {!isSpeechSupported() && <span className="hint"> (non supportée par ce navigateur)</span>}
+        </label>
+        <label className="volume-control">
+          Volume voix
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={voiceVolume}
+            disabled={!isSpeechSupported()}
+            onChange={(e) => handleVoiceVolumeChange(Number(e.target.value))}
+          />
         </label>
       </div>
 

@@ -1,6 +1,6 @@
 import { buildCountInBeats, buildTimeline, type TimelineBeat } from './beatTimeline';
 import { loadCountSamples } from './countSamples';
-import { cancelSpeech, speak } from './speech';
+import { cancelSpeech, setSpeechVolume, speak } from './speech';
 import type { Song } from '../types';
 
 export type EngineStatus = 'stopped' | 'playing' | 'paused';
@@ -92,6 +92,10 @@ export class MetronomeEngine {
   setVoiceEnabled(v: boolean): void {
     this.voiceEnabled = v;
     if (!v) cancelSpeech();
+  }
+
+  setVoiceVolume(v: number): void {
+    setSpeechVolume(v);
   }
 
   /** Lazily creates the AudioContext on first use, always from within a real
