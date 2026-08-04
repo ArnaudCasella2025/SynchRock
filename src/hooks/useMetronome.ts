@@ -41,6 +41,7 @@ export function useMetronome(song: Song) {
     stop: () => engineRef.current!.stop(),
     jumpToPart: (partIndex: number) => engineRef.current!.jumpToPart(partIndex),
     setClickVolume: (v: number) => engineRef.current!.setClickVolume(v),
+    setCountVolume: (v: number) => engineRef.current!.setCountVolume(v),
     setVoiceEnabled: (v: boolean) => engineRef.current!.setVoiceEnabled(v),
     setVoiceVolume: (v: number) => engineRef.current!.setVoiceVolume(v),
   };

@@ -49,6 +49,9 @@ export class MetronomeEngine {
   private pendingSpeechTimeouts: number[] = [];
 
   private clickVolume = 1;
+  /** Volume of the recorded "un/deux/trois/quatre" count-in samples —
+   * separate from the click and from the spoken part-name announcements. */
+  private countVolume = 1;
   private voiceEnabled = true;
   private callbacks: MetronomeCallbacks;
 
@@ -87,6 +90,10 @@ export class MetronomeEngine {
 
   setClickVolume(v: number): void {
     this.clickVolume = v;
+  }
+
+  setCountVolume(v: number): void {
+    this.countVolume = v;
   }
 
   setVoiceEnabled(v: boolean): void {
@@ -348,7 +355,7 @@ export class MetronomeEngine {
     const buffer = this.countSamples[countInNumber - 1];
     if (!buffer) {
       // Not loaded (slow network) or failed to decode — a click beats silence.
-      this.playClick(time, countInNumber === 1);
+      this.playClick(time, countInNumber === 1, this.countVolume);
       return;
     }
 
@@ -358,7 +365,7 @@ export class MetronomeEngine {
     gain.connect(ctx.destination);
     source.connect(gain);
 
-    gain.gain.setValueAtTime(this.clickVolume, time);
+    gain.gain.setValueAtTime(this.countVolume, time);
     source.start(time);
     if (time + buffer.duration > cutoffTime) {
       // Fade out fast right before the cutoff instead of stopping cold, to
@@ -366,7 +373,7 @@ export class MetronomeEngine {
       // Must come after start() — the spec throws if stop() is scheduled
       // before the node has actually been started.
       const fadeStart = Math.max(time, cutoffTime - SAMPLE_FADE_OUT_S);
-      gain.gain.setValueAtTime(this.clickVolume, fadeStart);
+      gain.gain.setValueAtTime(this.countVolume, fadeStart);
       gain.gain.linearRampToValueAtTime(0.0001, cutoffTime);
       source.stop(cutoffTime + 0.01);
     }
@@ -377,7 +384,7 @@ export class MetronomeEngine {
     };
   }
 
-  private playClick(time: number, accent: boolean): void {
+  private playClick(time: number, accent: boolean, volume = this.clickVolume): void {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -385,7 +392,7 @@ export class MetronomeEngine {
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    const peak = (accent ? 1 : 0.6) * this.clickVolume;
+    const peak = (accent ? 1 : 0.6) * volume;
     gain.gain.setValueAtTime(0.0001, time);
     gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0001), time + 0.001);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + CLICK_DURATION_S);
