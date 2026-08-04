@@ -1,4 +1,5 @@
 let frenchVoice: SpeechSynthesisVoice | null = null;
+let volume = 1;
 
 function supported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -20,6 +21,11 @@ export function isSpeechSupported(): boolean {
   return supported();
 }
 
+/** Sets the volume (0-1) applied to every announcement spoken from here on. */
+export function setSpeechVolume(v: number): void {
+  volume = v;
+}
+
 /** Speaks `text`, optionally invoking `onDone` once when the utterance
  * finishes (normally or via error) — used to delay a count-in until the
  * announcement has actually finished playing. Falls back to firing `onDone`
@@ -34,6 +40,7 @@ export function speak(text: string, onDone?: () => void): void {
   utterance.lang = 'fr-FR';
   if (frenchVoice) utterance.voice = frenchVoice;
   utterance.rate = 1;
+  utterance.volume = volume;
   if (onDone) {
     let done = false;
     const finish = () => {
