@@ -9,9 +9,20 @@ interface Props {
 }
 
 export function Player({ song, onBack }: Props) {
-  const { status, beat, play, pause, stop, jumpToPart, setClickVolume, setVoiceEnabled, setVoiceVolume } =
-    useMetronome(song);
+  const {
+    status,
+    beat,
+    play,
+    pause,
+    stop,
+    jumpToPart,
+    setClickVolume,
+    setCountVolume,
+    setVoiceEnabled,
+    setVoiceVolume,
+  } = useMetronome(song);
   const [volume, setVolume] = useState(1);
+  const [countVolume, setCountVolumeState] = useState(1);
   const [voiceOn, setVoiceOn] = useState(true);
   const [voiceVolume, setVoiceVolumeState] = useState(1);
 
@@ -38,6 +49,11 @@ export function Player({ song, onBack }: Props) {
   function handleVolumeChange(v: number) {
     setVolume(v);
     setClickVolume(v);
+  }
+
+  function handleCountVolumeChange(v: number) {
+    setCountVolumeState(v);
+    setCountVolume(v);
   }
 
   function handleVoiceToggle(on: boolean) {
@@ -132,6 +148,17 @@ export function Player({ song, onBack }: Props) {
             step={0.05}
             value={volume}
             onChange={(e) => handleVolumeChange(Number(e.target.value))}
+          />
+        </label>
+        <label className="volume-control">
+          Volume décompte
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={countVolume}
+            onChange={(e) => handleCountVolumeChange(Number(e.target.value))}
           />
         </label>
         <label className="voice-control">
