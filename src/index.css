@@ -1,14 +1,16 @@
 :root {
-  --bg: #14141a;
-  --surface: #1e1e27;
-  --surface-alt: #26262f;
-  --text: #f2f2f5;
-  --text-dim: #a3a3ad;
-  --accent: #ff5c5c;
-  --accent-dim: #7a2c2c;
-  --border: #33333e;
+  --bg: #0c0c10;
+  --surface: #161318;
+  --surface-alt: #1a1a20;
+  --border: #26232b;
+  --text: #f2f0ec;
+  --text-dim: #8a8790;
+  --text-dimmer: #6a6770;
+  --accent: #ff5470;
+  --accent-dim: rgba(255, 84, 112, 0.15);
+  --accent-ink: #160408;
   color-scheme: dark;
-  font: 16px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 16px/1.4 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
@@ -34,4 +36,18 @@ button {
 
 input {
   font: inherit;
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+}
+
+::placeholder {
+  color: var(--text-dimmer);
 }

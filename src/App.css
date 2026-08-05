@@ -12,20 +12,34 @@ button {
   background: var(--surface-alt);
   color: var(--text);
   padding: 12px 16px;
+  transition: transform 0.08s ease;
+}
+
+button:active {
+  transform: scale(0.96);
 }
 
 button.primary {
   background: var(--accent);
-  color: #1a0a0a;
-  font-weight: 600;
+  color: var(--accent-ink);
+  font-weight: 700;
+  box-shadow: 0 0 24px rgba(255, 84, 112, 0.25);
+}
+
+button.primary:active {
+  box-shadow: 0 0 10px rgba(255, 84, 112, 0.25);
 }
 
 button.secondary {
   background: var(--surface-alt);
 }
 
+button.secondary:active {
+  background: var(--border);
+}
+
 button.big {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   padding: 18px 28px;
   flex: 1;
 }
@@ -45,29 +59,80 @@ button.big {
 /* --- Song list --- */
 
 .song-list {
-  padding: 16px 20px 40px;
+  padding: 28px 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .app-header {
   text-align: center;
-  margin-top: 12px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.logo-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 34px;
+}
+
+.logo-bar {
+  width: 5px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.logo-bar:nth-child(1) {
+  height: 14px;
+}
+
+.logo-bar:nth-child(2) {
+  height: 26px;
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.logo-bar:nth-child(3) {
+  height: 34px;
+  box-shadow: 0 0 14px var(--accent);
+}
+
+.logo-bar:nth-child(4) {
+  height: 20px;
+}
+
+.logo-bar:nth-child(5) {
+  height: 10px;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 2.2rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 700;
   letter-spacing: -0.5px;
+  color: #fff;
 }
 
 .subtitle {
+  margin: 0;
   color: var(--text-dim);
+  font-size: 0.9rem;
 }
 
 .add-song-btn {
   width: 100%;
+  font-size: 1.05rem;
 }
 
 .cards {
@@ -83,7 +148,7 @@ button.big {
   display: flex;
   align-items: stretch;
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
 }
@@ -92,11 +157,31 @@ button.big {
   opacity: 0.6;
 }
 
+.card-reorder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 4px;
+  gap: 2px;
+}
+
+.reorder-btn {
+  background: transparent;
+  border-radius: 0;
+  color: var(--text-dimmer);
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.reorder-btn:hover {
+  color: var(--accent);
+}
+
 .drag-handle {
   background: transparent;
   color: var(--text-dim);
   border-radius: 0;
-  padding: 0 10px;
+  padding: 0 8px;
   cursor: grab;
   touch-action: none;
   display: flex;
@@ -106,17 +191,18 @@ button.big {
 
 .card-main {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border-radius: 0;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px;
+  padding: 16px 8px;
 }
 
 .card-title {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
@@ -142,7 +228,7 @@ button.big {
   color: var(--text-dim);
   border-radius: 0;
   font-size: 1.4rem;
-  padding: 0 18px;
+  padding: 0 16px;
 }
 
 .card-delete:hover {
@@ -152,38 +238,50 @@ button.big {
 /* --- Player --- */
 
 .player {
-  padding: 16px 20px 40px;
+  padding: 18px 20px 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   flex: 1;
 }
 
 .player-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
 
 .back-btn {
   background: var(--surface-alt);
+  font-size: 0.9rem;
+  padding: 10px 14px;
 }
 
 .player-title {
   display: flex;
   flex-direction: column;
+  text-align: right;
 }
 
 .player-title h1 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.player-title .subtitle {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .part-display {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px 16px;
+  border-radius: 20px;
+  padding: 32px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -192,20 +290,24 @@ button.big {
 
 .part-progress {
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
 .part-name {
-  margin: 4px 0;
-  font-size: 2.6rem;
+  margin: 8px 0 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 3rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 84, 112, 0.35);
 }
 
 .measure-progress {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: var(--text-dim);
 }
 
@@ -215,7 +317,7 @@ button.big {
 }
 
 .next-part {
-  margin-top: 10px;
+  margin-top: 12px;
   color: var(--text-dim);
   font-size: 0.95rem;
 }
@@ -223,16 +325,19 @@ button.big {
 .beat-dots {
   display: flex;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .beat-dot {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--surface-alt);
-  border: 2px solid var(--border);
-  transition: transform 0.05s ease, background 0.05s ease;
+  background: var(--border);
+  border: none;
+  transition:
+    transform 0.05s ease,
+    background 0.05s ease,
+    box-shadow 0.05s ease;
 }
 
 .beat-dot.accent {
@@ -242,7 +347,7 @@ button.big {
 
 .beat-dot.active {
   background: var(--accent);
-  border-color: var(--accent);
+  box-shadow: 0 0 18px var(--accent);
   transform: scale(1.15);
 }
 
@@ -252,13 +357,35 @@ button.big {
 }
 
 .settings-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.settings-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border-radius: 0;
+  color: var(--text);
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.settings-toggle-icon {
+  color: var(--text-dim);
+}
+
+.settings-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border);
 }
 
 .volume-control,
@@ -266,7 +393,8 @@ button.big {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  color: #c9c7cc;
 }
 
 .volume-control input[type='range'] {
@@ -289,11 +417,19 @@ button.big {
   background: var(--surface);
   border: 1px solid var(--border);
   text-align: left;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
 }
 
 .part-item.active button {
   background: var(--accent-dim);
   border-color: var(--accent);
+  color: var(--accent);
+}
+
+.part-item-name {
+  font-weight: 600;
 }
 
 .part-item-measures {
@@ -304,7 +440,7 @@ button.big {
 /* --- Song editor --- */
 
 .editor {
-  padding: 16px 20px 40px;
+  padding: 18px 20px 40px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -315,7 +451,7 @@ button.big {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-dim);
 }
 
@@ -325,7 +461,7 @@ button.big {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 12px;
   font-size: 1rem;
 }
 
@@ -337,7 +473,8 @@ button.big {
 
 .parts-editor h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .parts-editor-list {
@@ -355,8 +492,8 @@ button.big {
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  padding: 10px;
 }
 
 .part-row.dragging {
@@ -366,7 +503,17 @@ button.big {
 .part-row-main {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.part-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.part-reorder .reorder-btn {
+  padding: 1px 4px;
 }
 
 .part-row-name {
@@ -376,7 +523,7 @@ button.big {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px;
   font-size: 1rem;
 }
 
@@ -429,4 +576,11 @@ button.big {
 
 .icon-btn:hover {
   color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  .beat-dot {
+    transition: none;
+  }
 }
