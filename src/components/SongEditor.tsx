@@ -77,6 +77,17 @@ export function SongEditor({ song, onSave, onCancel }: Props) {
     setParts((current) => current.filter((p) => p._id !== id));
   }
 
+  function movePart(id: string, dir: -1 | 1) {
+    setParts((current) => {
+      const index = current.findIndex((p) => p._id === id);
+      const target = index + dir;
+      if (index === -1 || target < 0 || target >= current.length) return current;
+      const next = current.slice();
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
   function updateSegment(partId: string, segIndex: number, value: number) {
     setParts((current) =>
       current.map((p) =>
@@ -171,6 +182,26 @@ export function SongEditor({ song, onSave, onCancel }: Props) {
                   >
                     ⠿
                   </button>
+                  <div className="part-reorder">
+                    <button
+                      type="button"
+                      className="reorder-btn"
+                      aria-label="Monter cette partie"
+                      disabled={index === 0}
+                      onClick={() => movePart(part._id, -1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="reorder-btn"
+                      aria-label="Descendre cette partie"
+                      disabled={index === parts.length - 1}
+                      onClick={() => movePart(part._id, 1)}
+                    >
+                      ▼
+                    </button>
+                  </div>
                   <input
                     type="text"
                     className="part-row-name"
